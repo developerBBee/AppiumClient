@@ -49,6 +49,12 @@ fun ConfigScreenContent(
 ) {
     val configState by configViewModel.configStateFlow.collectAsState()
 
+    DisposableEffect(Unit) {
+        onDispose {
+            configViewModel.dispose()
+        }
+    }
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center

@@ -1,9 +1,4 @@
-import util.Constant.DEFAULT_HOST
-import util.Constant.DEFAULT_PATH
-import util.Constant.DEFAULT_PORT
-import util.Constant.DEFAULT_SCHEME
-import util.Constant.DEFAULT_SSL_ENABLED
-import java.net.URI
+import data.DEFAULT_URI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,13 +18,3 @@ class UriTest {
         assertEquals(uriString, DEFAULT_URI.toString())
     }
 }
-
-private val DEFAULT_URI = URI(
-    "$DEFAULT_SCHEME${if (DEFAULT_SSL_ENABLED) "s" else ""}",
-    null,
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_PATH,
-    null,
-    null
-)

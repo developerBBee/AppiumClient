@@ -17,7 +17,7 @@ import screen.main.MainScreen
 
 @Composable
 @Preview
-fun App() {
+private fun App() {
     MaterialTheme {
         var showConfig by remember { mutableStateOf(false) }
 

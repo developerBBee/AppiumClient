@@ -11,8 +11,8 @@ import java.io.File
 
 object ConfigRepository {
     private val configFile: File
-    private val _configFlow = MutableSharedFlow<AppiumConfiguration>(replay = 1)
-    private val configStateFlow: Flow<AppiumConfiguration> = _configFlow.asSharedFlow()
+    private val _configFlow = MutableStateFlow<AppiumConfiguration?>(null)
+    private val configStateFlow: Flow<AppiumConfiguration> = _configFlow.filterNotNull()
 
     init {
         val userHome = System.getProperty(Constant.USER_HOME)
