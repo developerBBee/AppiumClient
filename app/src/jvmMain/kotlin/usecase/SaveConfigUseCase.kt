@@ -1,10 +1,10 @@
 package usecase
 
-import data.AppiumConfiguration
-import repository.ConfigRepository
+import data.Target
+import repository.TargetsRepository
 
-object SaveConfigUseCase {
-    suspend operator fun invoke(config: AppiumConfiguration) {
-        ConfigRepository.saveConfig(config)
+internal object SaveConfigUseCase {
+    suspend operator fun invoke(targets: List<Target>) {
+        TargetsRepository.saveConfig(targets)
     }
 }

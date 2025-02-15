@@ -1,52 +1,161 @@
 package screen.main
 
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import usecase.RunAutomationUseCase
+import data.TargetId
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import usecase.*
 import util.IOScope
 
 class MainViewModel {
-    private val handler = CoroutineExceptionHandler { _, th -> detectError(th) }
+    private val mutex = Mutex()
 
-    private val _mainStateFlow = MutableStateFlow<MainState>(MainState.Idle)
-    val mainStateFlow: StateFlow<MainState> = _mainStateFlow.asStateFlow()
+    private val _mainStateFlow = MutableStateFlow<Map<TargetId, MainState>>(emptyMap())
+    val mainStateFlow: StateFlow<Map<TargetId, MainState>> = _mainStateFlow.asStateFlow()
 
-    private var job: Job? = null
+    private val jobs: MutableMap<TargetId, Job> = mutableMapOf()
+    private var _serverProcess: Process? = null
+    private val serverProcess: Process get() = requireNotNull(_serverProcess)
 
-    suspend fun run() {
-        job?.cancelAndJoin()
-        _mainStateFlow.value = MainState.Running(log = "Start")
-        job = IOScope.launch(handler) {
-            RunAutomationUseCase() // TODO: flowにして途中経過をcollectする
-            _mainStateFlow.value = MainState.Finished(isCompletion = true)
+    private var loadingJob: Job? = null
+
+    private var ipAddress: String? = GetPrivateIpAddressUseCase()
+
+    init {
+        loadingJob = GetTargetsUseCase()
+            .map { targets ->
+                ipAddress?.let { privateIpAddress ->
+                    targets.map { target ->
+                        target.copy(configuration = target.configuration.copy(host = privateIpAddress))
+                    }.also { SaveConfigUseCase(it) }
+                } ?: targets
+            }
+            .onEach { targets ->
+                _mainStateFlow.value = targets.associate { target ->
+                    target.id to MainState(
+                        targetId = target.id,
+                        targetName = target.name,
+                        runState = MainRunState.Idle,
+                    )
+                }
+            }
+            .launchIn(IOScope)
+    }
+
+    suspend fun runAll() {
+        TODO()
+    }
+
+    suspend fun run(targetId: TargetId) {
+        if (jobs[targetId] != null) return
+
+        updateRunState(
+            targetId = targetId,
+            runState = MainRunState.Running(log = "Start")
+        )
+
+        val target = GetTargetsUseCase().first().first { it.id == targetId }
+
+        mutex.withLock {
+            if (_serverProcess == null) {
+                try {
+                    _serverProcess = LaunchServerUseCase(
+                        host = target.configuration.host,
+                        port = target.configuration.port,
+                    )
+                } catch (ex: CancellationException) {
+                    throw ex
+                } catch (ex: Exception) {
+                    detectError(ex = ex, targetId = targetId)
+                    return
+                }
+            }
+        }
+
+        jobs[targetId] = ExecuteEventsUseCase(target = target)
+            .onEach { log ->
+                updateRunState(
+                    targetId = targetId,
+                    runState = MainRunState.Running(log = log)
+                )
+            }
+            .onCompletion {
+                removeJob(targetId)
+
+                val runState = when (it) {
+                    null -> MainRunState.Finished(isCompletion = true)
+                    is CancellationException -> MainRunState.Finished(isCompletion = false)
+                    else -> MainRunState.Error(message = it.stackTraceToString())
+                }
+
+                updateRunState(targetId = targetId, runState = runState)
+            }
+            .launchIn(IOScope + CoroutineName(targetId.toString()))
+    }
+
+    private suspend fun removeJob(targetId: TargetId) {
+        println("remove job [targetId=$targetId]")
+
+        jobs.remove(targetId)
+
+        mutex.withLock {
+            if (jobs.isEmpty() && _serverProcess != null) {
+                StopServerUseCase(process = serverProcess)
+                _serverProcess = null
+            }
         }
     }
 
-    suspend fun cancel() {
-        _mainStateFlow.value = MainState.Cancelling(log = "Cancelling")
-        job?.cancelAndJoin()
-        job = null
-        _mainStateFlow.value = MainState.Finished(isCompletion = false)
+    suspend fun cancel(targetId: TargetId) {
+        updateRunState(
+            targetId = targetId,
+            runState = MainRunState.Cancelling(log = "Cancelling")
+        )
+
+        jobs[targetId]?.cancelAndJoin()
+        removeJob(targetId)
+
+        updateRunState(
+            targetId = targetId,
+            runState = MainRunState.Finished(isCompletion = false)
+        )
     }
 
-    private fun detectError(th: Throwable) {
-        _mainStateFlow.value = MainState.Error(message = th.stackTraceToString())
+    private fun detectError(
+        ex: Exception,
+        targetId: TargetId,
+    ) {
+        updateRunState(
+            targetId = targetId,
+            runState = MainRunState.Error(message = ex.stackTraceToString())
+        )
+    }
+
+    private fun updateRunState(targetId: TargetId, runState: MainRunState) {
+        val targetState = mainStateFlow.value.getValue(targetId)
+        _mainStateFlow.value += (targetId to targetState.copy(runState = runState))
     }
 
     fun dispose() {
-        job?.cancel()
+        jobs.values.forEach { it.cancel() }
+        jobs.clear()
+        _serverProcess?.destroy()
+        _serverProcess = null
+        loadingJob?.cancel()
     }
 }
 
-sealed interface MainState {
-    data object Idle : MainState
-    data class Running(val log: String) : MainState // TODO: logはrepositoryに保持する
-    data class Cancelling(val log: String) : MainState
-    data class Finished(val isCompletion: Boolean) : MainState
-    data class Error(val message: String) : MainState
+sealed interface MainRunState {
+    data object Idle : MainRunState
+    data class Running(val log: String) : MainRunState
+    data class Cancelling(val log: String) : MainRunState
+    data class Finished(val isCompletion: Boolean) : MainRunState
+    data class Error(val message: String) : MainRunState
 }
+
+data class MainState(
+    val targetId: TargetId,
+    val targetName: String,
+    val runState: MainRunState,
+)

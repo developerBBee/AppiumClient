@@ -19,6 +19,4 @@ pluginManagement {
 }
 
 rootProject.name = "AppiumClient"
-include(":appiumDriver")
 include(":app")
-include("shared")

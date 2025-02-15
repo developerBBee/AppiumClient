@@ -1,1 +1,0 @@
-class DriverNotPreparedException : Exception("Driver not prepared")

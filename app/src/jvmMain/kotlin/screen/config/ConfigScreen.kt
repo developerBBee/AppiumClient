@@ -1,22 +1,31 @@
 package screen.config
 
+import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import data.AppiumConfiguration
+import data.Target
+import data.senario.ScenarioName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConfigScreen(
     modifier: Modifier = Modifier,
+    scope: CoroutineScope,
     onOutsideClick: () -> Unit,
     onCloseClick: () -> Unit,
 ) {
@@ -32,10 +41,11 @@ fun ConfigScreen(
     ) {
         ConfigScreenContent(
             modifier = Modifier
-                .fillMaxSize(fraction = 0.8f)
+                .fillMaxSize(fraction = 0.9f)
                 .background(color = Color.White, shape = RoundedCornerShape(16.dp))
                 .padding(16.dp)
                 .clickable(enabled = false) {},
+            scope = scope,
             onCloseClick = onCloseClick,
         )
     }
@@ -44,10 +54,11 @@ fun ConfigScreen(
 @Composable
 fun ConfigScreenContent(
     modifier: Modifier = Modifier,
+    scope: CoroutineScope,
     onCloseClick: () -> Unit,
     configViewModel: ConfigViewModel = rememberConfigViewModel(),
 ) {
-    val configState by configViewModel.configStateFlow.collectAsState()
+    val configState by configViewModel.configUiStateFlow.collectAsState()
 
     DisposableEffect(Unit) {
         onDispose {
@@ -60,20 +71,23 @@ fun ConfigScreenContent(
         contentAlignment = Alignment.Center
     ) {
         when (val state = configState) {
-            is ConfigState.Loading -> {
+            is ConfigUiState.Loading -> {
                 CircularProgressIndicator()
             }
 
-            is ConfigState.Success -> {
-                EditConfigScreen(
+            is ConfigUiState.Success -> {
+                TargetsTable(
                     modifier = Modifier.fillMaxSize(),
-                    config = state.config,
-                    onConfigChange = { configViewModel.saveSettings(it) },
+                    scope = scope,
+                    targets = state.targets,
+                    onAdditionClick = configViewModel::addNewTarget,
+                    onRemoveClick = configViewModel::removeTarget,
+                    onTargetUpdate = configViewModel::updateTarget,
                     onCloseClick = onCloseClick,
                 )
             }
 
-            is ConfigState.Error -> {
+            is ConfigUiState.Error -> {
                 Text(text = state.throwable.stackTraceToString())
             }
         }
@@ -81,59 +95,96 @@ fun ConfigScreenContent(
 }
 
 @Composable
-private fun EditConfigScreen(
+private fun TargetsTable(
     modifier: Modifier = Modifier,
-    config: AppiumConfiguration,
-    onConfigChange: (AppiumConfiguration) -> Unit,
+    scope: CoroutineScope,
+    targets: List<Target>,
+    onAdditionClick: () -> Unit,
+    onRemoveClick: (Target) -> Unit,
+    onTargetUpdate: (Int, Target) -> Unit,
     onCloseClick: () -> Unit,
 ) {
-    val verticalState = rememberScrollState(0)
+    val pagerState = rememberPagerState { targets.size }
 
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(verticalState),
-        ) {
-            TextFieldWithLabel(
-                label = "Host",
-                value = config.host,
-                onValueChange = { onConfigChange(config.copy(host = it)) }
-            )
-            TextFieldWithLabel(
-                label = "Port",
-                value = config.port.toString(),
-                validator = {
-                    val port = it.toIntOrNull()
-                    (port != null && port in 0..65535)
-                },
-                onValueChange = { onConfigChange(config.copy(port = it.toInt())) }
-            )
-            TextFieldWithLabel(
-                label = "Path",
-                value = config.path,
-                onValueChange = { onConfigChange(config.copy(path = it)) }
-            )
-            CheckBoxWithLabel(
-                label = "Enable SSL",
-                checked = config.sslEnabled,
-                onCheckedChange = { onConfigChange(config.copy(sslEnabled = it)) }
-            )
-            TextFieldWithLabel(
-                label = "UDID",
-                value = config.udid,
-                onValueChange = { onConfigChange(config.copy(udid = it)) }
-            )
-            TextFieldWithLabel(
-                label = "AppFullPath",
-                value = config.app,
-                onValueChange = { onConfigChange(config.copy(app = it)) }
-            )
+        Row {
+            OutlinedButton(onClick = onAdditionClick) {
+                Text(text = "追加")
+            }
+            OutlinedButton(
+                enabled = targets.size > 1,
+                onClick = {
+                    scope.launch {
+                        val target = targets[pagerState.currentPage]
+                        if (pagerState.currentPage >= targets.size - 1) {
+                            pagerState.scrollToPage(page = pagerState.currentPage - 1)
+                        }
+                        onRemoveClick(target)
+                    }
+                }
+            ) {
+                Text(text = "削除")
+            }
         }
+
+        TabRow(
+            modifier = Modifier.background(color = Color.White),
+            selectedTabIndex = pagerState.currentPage,
+            backgroundColor = MaterialTheme.colors.background,
+            contentColor = MaterialTheme.colors.primaryVariant,
+        ) {
+            targets.map { it.name }.forEachIndexed { index, name ->
+                Tab(
+                    text = { Text(text = name, style = MaterialTheme.typography.button) },
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
+                )
+            }
+        }
+
+        HorizontalPager(
+            modifier = Modifier.weight(1f),
+            state = pagerState,
+        ) { page ->
+            val target = targets[page]
+            val scrollState = rememberScrollState(0)
+
+            Box {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 96.dp)
+                        .verticalScroll(scrollState),
+                ) {
+                    EditName(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        name = target.name,
+                        onNameChange = { onTargetUpdate(page, target.copy(name = it)) },
+                    )
+
+                    EditScenario(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        scenarioName = target.scenarioName,
+                        onScenarioChange = { onTargetUpdate(page, target.copy(scenarioName = it)) },
+                    )
+
+                    EditConfig(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        config = target.configuration,
+                        onConfigChange = { onTargetUpdate(page, target.copy(configuration = it)) },
+                    )
+                }
+
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    adapter = rememberScrollbarAdapter(scrollState),
+                )
+            }
+        }
+
         OutlinedButton(onClick = onCloseClick) {
             Text(text = "閉じる")
         }
@@ -141,7 +192,114 @@ private fun EditConfigScreen(
 }
 
 @Composable
+private fun EditName(
+    modifier: Modifier = Modifier,
+    name: String,
+    onNameChange: (String) -> Unit,
+) {
+    Box(modifier = modifier) {
+        TextFieldWithLabel(
+            modifier = Modifier.fillMaxWidth(),
+            label = "テスト名",
+            value = name,
+            onValueChange = onNameChange
+        )
+    }
+}
+
+@Composable
+private fun EditConfig(
+    modifier: Modifier = Modifier,
+    config: AppiumConfiguration,
+    onConfigChange: (AppiumConfiguration) -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        TextFieldWithLabel(
+            modifier = Modifier.fillMaxWidth(),
+            label = "Host",
+            value = config.host,
+            onValueChange = { onConfigChange(config.copy(host = it)) }
+        )
+        TextFieldWithLabel(
+            modifier = Modifier.fillMaxWidth(),
+            label = "Port",
+            value = config.port.toString(),
+            validator = {
+                val port = it.toIntOrNull()
+                (port != null && port in 0..65535)
+            },
+            onValueChange = { onConfigChange(config.copy(port = it.toInt())) }
+        )
+//        TextFieldWithLabel(
+//            label = "Path",
+//            value = config.path,
+//            onValueChange = { onConfigChange(config.copy(path = it)) }
+//        )
+//        CheckBoxWithLabel(
+//            label = "Enable SSL",
+//            checked = config.sslEnabled,
+//            onCheckedChange = { onConfigChange(config.copy(sslEnabled = it)) }
+//        )
+        TextFieldWithLabel(
+            modifier = Modifier.fillMaxWidth(),
+            label = "UDID",
+            value = config.udid,
+            onValueChange = { onConfigChange(config.copy(udid = it)) }
+        )
+        TextFieldWithLabel(
+            modifier = Modifier.fillMaxWidth(),
+            label = "AppFullPath",
+            value = config.app,
+            onValueChange = { onConfigChange(config.copy(app = it)) }
+        )
+    }
+}
+
+@Composable
+private fun EditScenario(
+    modifier: Modifier = Modifier,
+    scenarioName: ScenarioName,
+    onScenarioChange: (ScenarioName) -> Unit,
+) {
+    ContentWithLabel(
+        modifier = modifier,
+        label = "シナリオ",
+        textStyle = MaterialTheme.typography.body2
+    ) {
+        val dropdownState = remember { DropdownMenuState() }
+
+        Box(modifier = modifier) {
+            OutlinedTextField(
+                enabled = false,
+                value = scenarioName.value,
+                onValueChange = {},
+                modifier = Modifier.clickable {
+                    dropdownState.status = DropdownMenuState.Status.Open(position = Offset(x = 0f, y = 0f))
+                }
+            )
+
+            DropdownMenu(state = dropdownState) {
+                ScenarioName.entries.forEach { scenarioName ->
+                    DropdownMenuItem(
+                        onClick = {
+                            dropdownState.status = DropdownMenuState.Status.Closed
+                            onScenarioChange(scenarioName)
+                        }
+                    ) {
+                        Text(text = scenarioName.value)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TextFieldWithLabel(
+    modifier: Modifier = Modifier,
     label: String,
     value: String,
     validator: (String) -> Boolean = { true },
@@ -149,19 +307,17 @@ private fun TextFieldWithLabel(
 ) {
     var text by remember { mutableStateOf(value) }
 
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 32.dp, vertical = 8.dp)
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    ContentWithLabel(
+        modifier = modifier,
+        label = label,
+        textStyle = MaterialTheme.typography.body2
     ) {
-        Text(
-            modifier = Modifier.weight(1f),
-            text = label,
-        )
         TextField(
-            modifier = Modifier.weight(3f),
+            modifier = Modifier.fillMaxWidth(),
             value = text,
+            colors = TextFieldDefaults.textFieldColors(backgroundColor = Color.White),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.body2,
             onValueChange = {
                 if (validator(it)) {
                     text = it
@@ -173,30 +329,68 @@ private fun TextFieldWithLabel(
 }
 
 @Composable
-private fun CheckBoxWithLabel(
+private fun ContentWithLabel(
+    modifier: Modifier = Modifier,
     label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    textStyle: TextStyle,
+    content: @Composable () -> Unit
 ) {
-    var boxChecked by remember { mutableStateOf(checked) }
-
     Row(
-        modifier = Modifier
-            .padding(horizontal = 32.dp, vertical = 16.dp)
-            .clip(shape = RoundedCornerShape(32.dp))
-            .clickable { boxChecked = !boxChecked },
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(
-            checked = boxChecked,
-            onCheckedChange = onCheckedChange
-        )
         Text(
-            modifier = Modifier.padding(end = 16.dp),
-            text = label
+            modifier = Modifier.weight(1f),
+            text = label,
+            style = textStyle,
         )
+        Box(
+            modifier = Modifier.weight(3f),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            content()
+        }
     }
 }
 
+//@Composable
+//private fun CheckBoxWithLabel(
+//    label: String,
+//    checked: Boolean,
+//    onCheckedChange: (Boolean) -> Unit
+//) {
+//    var boxChecked by remember { mutableStateOf(checked) }
+//
+//    Row(
+//        modifier = Modifier
+//            .padding(horizontal = 32.dp, vertical = 8.dp)
+//            .clip(shape = RoundedCornerShape(32.dp))
+//            .clickable { boxChecked = !boxChecked },
+//        verticalAlignment = Alignment.CenterVertically
+//    ) {
+//        Checkbox(
+//            modifier = Modifier.height(32.dp),
+//            checked = boxChecked,
+//            onCheckedChange = onCheckedChange
+//        )
+//        Text(
+//            modifier = Modifier.padding(end = 16.dp),
+//            text = label,
+//            style = MaterialTheme.typography.body2,
+//        )
+//    }
+//}
+
 @Composable
 private fun rememberConfigViewModel(): ConfigViewModel = rememberSaveable { ConfigViewModel() }
+
+@Composable
+@Preview
+private fun ConfigScreenPreview() {
+    ConfigScreen(
+        modifier = Modifier.fillMaxSize(),
+        scope = rememberCoroutineScope(),
+        onOutsideClick = {},
+        onCloseClick = {},
+    )
+}

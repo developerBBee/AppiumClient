@@ -19,17 +19,17 @@ kotlin {
             // (in a separate module for demo project and in testMain).
             // With compose.desktop.common you will also lose @Preview functionality
             implementation(compose.desktop.currentOs)
+            implementation(compose.materialIconsExtended)
             implementation("io.appium:java-client:9.3.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
-
-            implementation(project(":shared"))
-            implementation(project(":appiumDriver"))
         }
 
         jvmTest.dependencies {
             implementation(kotlin("test"))
         }
     }
+
+    jvmToolchain(21)
 }
 
 compose.desktop {

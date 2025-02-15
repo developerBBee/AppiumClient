@@ -1,6 +1,7 @@
 package screen.config
 
-import data.AppiumConfiguration
+import data.*
+import data.Target
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,34 +11,61 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import usecase.GetConfigUseCase
+import usecase.GetTargetsUseCase
 import usecase.SaveConfigUseCase
 import util.IOScope
 
 class ConfigViewModel {
     private val handler = CoroutineExceptionHandler { _, th -> detectError(th) }
 
-    private val _configStateFlow = MutableStateFlow<ConfigState>(ConfigState.Loading)
-    val configStateFlow: StateFlow<ConfigState> = _configStateFlow.asStateFlow()
+    private val _configUiStateFlow = MutableStateFlow<ConfigUiState>(ConfigUiState.Loading)
+    val configUiStateFlow: StateFlow<ConfigUiState> = _configUiStateFlow.asStateFlow()
 
-    private val job: Job = GetConfigUseCase()
+    private val job: Job = GetTargetsUseCase()
         .onEach {
-            println("Config: $it")
-            _configStateFlow.value = ConfigState.Success(it)
+            println(it.map { it.configuration to it.deviceInfo })
+            _configUiStateFlow.value = ConfigUiState.Success(it)
         }
         .catch {
-            _configStateFlow.value = ConfigState.Error(it)
+            _configUiStateFlow.value = ConfigUiState.Error(it)
         }
         .launchIn(IOScope)
 
-    fun saveSettings(config: AppiumConfiguration) {
+    fun addNewTarget() {
+        val state = _configUiStateFlow.value as? ConfigUiState.Success ?: return
+
+        val newTarget = EMU_SAMPLE_TARGET.copy(id = state.targets.nextId())
+
         IOScope.launch(handler) {
-            SaveConfigUseCase(config)
+            SaveConfigUseCase(state.targets + newTarget)
+        }
+    }
+
+    fun removeTarget(target: Target) {
+        val state = _configUiStateFlow.value as? ConfigUiState.Success ?: return
+
+        val targets = state.targets.toMutableList()
+        targets.remove(target)
+
+        IOScope.launch(handler) {
+            SaveConfigUseCase(targets)
+        }
+    }
+
+    fun updateTarget(index: Int, target: Target) {
+        val state = _configUiStateFlow.value
+        if (state !is ConfigUiState.Success) return
+
+        val targets = state.targets.toMutableList()
+        targets[index] = target
+
+        IOScope.launch(handler) {
+            SaveConfigUseCase(targets)
         }
     }
 
     private fun detectError(th: Throwable) {
-        _configStateFlow.value = ConfigState.Error(th)
+        _configUiStateFlow.value = ConfigUiState.Error(th)
     }
 
     fun dispose() {
@@ -45,8 +73,8 @@ class ConfigViewModel {
     }
 }
 
-sealed interface ConfigState {
-    data object Loading : ConfigState
-    data class Success(val config: AppiumConfiguration) : ConfigState
-    data class Error(val throwable: Throwable) : ConfigState
+sealed interface ConfigUiState {
+    data object Loading : ConfigUiState
+    data class Success(val targets: List<Target>) : ConfigUiState
+    data class Error(val throwable: Throwable) : ConfigUiState
 }
