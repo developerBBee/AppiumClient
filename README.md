@@ -32,7 +32,7 @@
    $ npm i -g appium
    ```
 
-   Install uiAutomator2.
+   Install [appium-uiautomator2-driver](https://github.com/appium/appium-uiautomator2-driver).
    ``` sg
    $ appium driver install uiautomator2
    ```
@@ -42,14 +42,7 @@
    $ appium
    ```
 
-3. Install Appium driver
-
-   Install [appium-uiautomator2-driver](https://github.com/appium/appium-uiautomator2-driver) as the Appium driver.
-   ``` sh
-   appium driver install uiautomator2
-   ```
-
-4. Appium Inspector
+3. Appium Inspector
 
    If you need a tool to visualize your view tree structure, we recommend using [Appium Inspector](https://github.com/appium/appium-inspector/releases).
    You need to set [Capabilities](https://appium.io/docs/en/latest/guides/caps/) to use it.
@@ -62,6 +55,3 @@
      "appium:udid": "emulator-5554"
    }
    ```
-   
-   
-   
