@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.DropdownMenuState
@@ -48,6 +47,7 @@ import data.Target
 import data.senario.ScenarioName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import ui.component.indicator.KodeeProgressIndicator
 
 @Composable
 fun ConfigScreen(
@@ -93,7 +93,7 @@ fun ConfigScreenContent(
     ) {
         when (val state = configState) {
             is ConfigUiState.Loading -> {
-                CircularProgressIndicator()
+                KodeeProgressIndicator()
             }
 
             is ConfigUiState.Success -> {

@@ -13,6 +13,10 @@ version = "1.0-SNAPSHOT"
 kotlin {
     jvm()
     sourceSets {
+        commonMain.dependencies {
+            implementation(compose.components.resources)
+        }
+
         jvmMain.dependencies {
             // Note, if you develop a library, you should use compose.desktop.common.
             // compose.desktop.currentOs should be used in launcher-sourceSet
