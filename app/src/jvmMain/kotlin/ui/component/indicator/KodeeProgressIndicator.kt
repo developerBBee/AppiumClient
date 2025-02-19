@@ -1,16 +1,15 @@
 package ui.component.indicator
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
@@ -24,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
@@ -44,15 +44,24 @@ import jp.developer.bbee.app.generated.resources.kodee_sad
 import jp.developer.bbee.app.generated.resources.kodee_shocked
 import jp.developer.bbee.app.generated.resources.kodee_surprised
 import jp.developer.bbee.app.generated.resources.kodee_welcoming
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Duration.Companion.milliseconds
 
+// Constants
 private const val BASE_ROTATION_DURATION = 1000
-private const val MODULATION_DURATION = 666
+private const val MODULATION_DURATION = 1333
 private const val MODULATION_ANGLE = 40f
+private const val MODULATION_OFFSET = 0.5f
+
+// Animation
+private val ScaleIn = scaleIn(initialScale = 0.1f) +
+        fadeIn(tween(durationMillis = 600, easing = FastOutSlowInEasing))
+private val ScaleOut = scaleOut(targetScale = 0.1f) +
+        fadeOut(tween(durationMillis = 600, easing = FastOutSlowInEasing))
 
 /**
  * A progress indicator that displays a rotating Kodee image.
@@ -62,7 +71,6 @@ private const val MODULATION_ANGLE = 40f
  * @param modifier The modifier to apply to the progress indicator.
  * @param size The size of the progress indicator.
  */
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun KodeeProgressIndicator(
     modifier: Modifier = Modifier,
@@ -71,60 +79,55 @@ fun KodeeProgressIndicator(
     val infiniteTransition = rememberInfiniteTransition()
     var currentKodeeIndex by remember { mutableIntStateOf(getRandomKodeeIndex()) }
 
-    // Change the image every time Kodee rotates
+    // Randomly change the Kodee image
     LaunchedEffect(Unit) {
-        while (coroutineContext.isActive) {
-            delay(BASE_ROTATION_DURATION.milliseconds)
-            currentKodeeIndex = (currentKodeeIndex + 1) % KodeeImage.entries.size
+        while (currentCoroutineContext().isActive) {
+            delay(MODULATION_DURATION.milliseconds)
+            currentKodeeIndex = getRandomKodeeIndex(currentKodeeIndex)
         }
     }
 
-    // Base rotation for the indicator
+    // Continuous rotation animation
     val baseRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = BASE_ROTATION_DURATION, easing = LinearEasing),
+            animation = tween(
+                durationMillis = BASE_ROTATION_DURATION,
+                easing = LinearEasing,
+            ),
         ),
     )
 
-    // A modulation to mimic the movement of Material's indicator
+    // Material like modulation
     val modulatedProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = MODULATION_DURATION, easing = FastOutSlowInEasing),
+            animation = tween(
+                durationMillis = MODULATION_DURATION,
+                easing = FastOutSlowInEasing,
+            ),
             repeatMode = RepeatMode.Reverse,
         ),
     )
-    val modulationAngle = (modulatedProgress - 0.5f) * MODULATION_ANGLE
-
-    // The combined rotation angle is the base rotation plus the modulation angle
+    val modulationAngle = (modulatedProgress - MODULATION_OFFSET) * MODULATION_ANGLE
     val combinedRotation = baseRotation + modulationAngle
 
     AnimatedContent(
+        contentAlignment = Alignment.Center,
+        transitionSpec = { ScaleIn togetherWith ScaleOut },
         targetState = KodeeImage.entries[currentKodeeIndex],
-        transitionSpec = {
-            // Bounds for the spring animation
-            val animationSpec = spring<Float>(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessLow,
-            )
-            scaleIn(
-                initialScale = 0.8f,
-                animationSpec = animationSpec,
-            ) togetherWith scaleOut(
-                targetScale = 1.2f,
-                animationSpec = animationSpec,
-            )
-        }
+        modifier = modifier,
     ) { image ->
         Image(
             painter = painterResource(image.drawableRes),
             contentDescription = image.contentDescription,
-            modifier = modifier
+            modifier = Modifier
                 .size(size)
-                .graphicsLayer(rotationZ = combinedRotation),
+                .graphicsLayer(
+                    rotationZ = combinedRotation,
+                ),
         )
     }
 }
@@ -133,7 +136,7 @@ fun KodeeProgressIndicator(
 object KodeeProgressIndicatorDefaults {
 
     /** The default size of the [KodeeProgressIndicator]. */
-    val Size: Dp = 48.dp
+    val Size: Dp = 64.dp
 }
 
 private enum class KodeeImage(
@@ -217,7 +220,18 @@ private enum class KodeeImage(
     ),
 }
 
-private fun getRandomKodeeIndex(): Int = (0..KodeeImage.entries.size).random()
+/**
+ * Returns a random index for the [KodeeImage] entries.
+ *
+ * @param selectedKodeeIndex The index to exclude from the random selection.
+ * @return A random index for the [KodeeImage] entries.
+ */
+private fun getRandomKodeeIndex(selectedKodeeIndex: Int? = null): Int =
+    if (selectedKodeeIndex == null) {
+        (0..<KodeeImage.entries.size).random()
+    } else {
+        ((0..<KodeeImage.entries.size) - selectedKodeeIndex).random()
+    }
 
 @Preview
 @Composable
