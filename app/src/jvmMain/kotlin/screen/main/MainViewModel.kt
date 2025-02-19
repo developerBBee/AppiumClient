@@ -1,14 +1,16 @@
 package screen.main
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import data.TargetId
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import usecase.*
-import util.IOScope
 
-class MainViewModel {
+class MainViewModel : ViewModel() {
+
     private val mutex = Mutex()
 
     private val _mainStateFlow = MutableStateFlow<Map<TargetId, MainState>>(emptyMap())
@@ -40,7 +42,8 @@ class MainViewModel {
                     )
                 }
             }
-            .launchIn(IOScope)
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
     }
 
     suspend fun runAll() {
@@ -91,7 +94,8 @@ class MainViewModel {
 
                 updateRunState(targetId = targetId, runState = runState)
             }
-            .launchIn(IOScope + CoroutineName(targetId.toString()))
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope + CoroutineName(targetId.toString()))
     }
 
     private suspend fun removeJob(targetId: TargetId) {
@@ -137,12 +141,8 @@ class MainViewModel {
         _mainStateFlow.value += (targetId to targetState.copy(runState = runState))
     }
 
-    fun dispose() {
-        jobs.values.forEach { it.cancel() }
-        jobs.clear()
+    override fun onCleared() {
         _serverProcess?.destroy()
-        _serverProcess = null
-        loadingJob?.cancel()
     }
 }
 

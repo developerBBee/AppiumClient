@@ -1,75 +1,82 @@
 package screen.config
 
-import data.*
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import data.EMU_SAMPLE_TARGET
 import data.Target
+import data.nextId
 import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import usecase.GetTargetsUseCase
 import usecase.SaveConfigUseCase
-import util.IOScope
 
-class ConfigViewModel {
+class ConfigViewModel : ViewModel() {
+
     private val handler = CoroutineExceptionHandler { _, th -> detectError(th) }
 
-    private val _configUiStateFlow = MutableStateFlow<ConfigUiState>(ConfigUiState.Loading)
-    val configUiStateFlow: StateFlow<ConfigUiState> = _configUiStateFlow.asStateFlow()
+    private val errorFlow = MutableStateFlow<Throwable?>(null)
 
-    private val job: Job = GetTargetsUseCase()
-        .onEach {
-            println(it.map { it.configuration to it.deviceInfo })
-            _configUiStateFlow.value = ConfigUiState.Success(it)
+    val uiState: StateFlow<ConfigUiState> = combine(
+        GetTargetsUseCase(),
+        errorFlow,
+    ) { targets, error ->
+        if (error != null) {
+            ConfigUiState.Error(error)
+        } else {
+            ConfigUiState.Success(targets)
         }
-        .catch {
-            _configUiStateFlow.value = ConfigUiState.Error(it)
-        }
-        .launchIn(IOScope)
+    }
+        .flowOn(Dispatchers.IO)
+        .catch { emit(ConfigUiState.Error(it)) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ConfigUiState.Loading,
+        )
 
     fun addNewTarget() {
-        val state = _configUiStateFlow.value as? ConfigUiState.Success ?: return
+        val state = uiState.value as? ConfigUiState.Success ?: return
 
         val newTarget = EMU_SAMPLE_TARGET.copy(id = state.targets.nextId())
 
-        IOScope.launch(handler) {
+        viewModelScope.launch(handler + Dispatchers.IO) {
             SaveConfigUseCase(state.targets + newTarget)
         }
     }
 
     fun removeTarget(target: Target) {
-        val state = _configUiStateFlow.value as? ConfigUiState.Success ?: return
+        val state = uiState.value as? ConfigUiState.Success ?: return
 
         val targets = state.targets.toMutableList()
         targets.remove(target)
 
-        IOScope.launch(handler) {
+        viewModelScope.launch(handler + Dispatchers.IO) {
             SaveConfigUseCase(targets)
         }
     }
 
     fun updateTarget(index: Int, target: Target) {
-        val state = _configUiStateFlow.value
+        val state = uiState.value
         if (state !is ConfigUiState.Success) return
 
         val targets = state.targets.toMutableList()
         targets[index] = target
 
-        IOScope.launch(handler) {
+        viewModelScope.launch(handler + Dispatchers.IO) {
             SaveConfigUseCase(targets)
         }
     }
 
     private fun detectError(th: Throwable) {
-        _configUiStateFlow.value = ConfigUiState.Error(th)
-    }
-
-    fun dispose() {
-        job.cancel()
+        errorFlow.value = th
     }
 }
 

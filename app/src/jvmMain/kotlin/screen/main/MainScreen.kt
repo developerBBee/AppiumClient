@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -26,15 +27,8 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     scope: CoroutineScope,
     onConfigClick: () -> Unit,
-    mainViewModel: MainViewModel = rememberMainViewModel(),
+    mainViewModel: MainViewModel = viewModel(),
 ) {
-
-    DisposableEffect(Unit) {
-        onDispose {
-            mainViewModel.dispose()
-        }
-    }
-
     val mainStates by mainViewModel.mainStateFlow.collectAsState()
 
     val dataList = mainStates.map { (targetId, mainState) ->
@@ -146,7 +140,6 @@ private fun MainBaseLayout(
     }
 }
 
-
 @Composable
 private fun MainPagerContent(
     modifier: Modifier = Modifier,
@@ -234,9 +227,6 @@ private fun MainScreenPreview() {
         scope = rememberCoroutineScope(),
     )
 }
-
-@Composable
-private fun rememberMainViewModel(): MainViewModel = rememberSaveable { MainViewModel() }
 
 data class MainScreenData(
     val targetName: String,

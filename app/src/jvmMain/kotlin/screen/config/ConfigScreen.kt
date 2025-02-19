@@ -1,21 +1,48 @@
 package screen.config
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.*
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.DropdownMenuState
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedButton
+import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Tab
+import androidx.compose.material.TabRow
+import androidx.compose.material.Text
+import androidx.compose.material.TextField
+import androidx.compose.material.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import data.AppiumConfiguration
 import data.Target
 import data.senario.ScenarioName
@@ -56,15 +83,9 @@ fun ConfigScreenContent(
     modifier: Modifier = Modifier,
     scope: CoroutineScope,
     onCloseClick: () -> Unit,
-    configViewModel: ConfigViewModel = rememberConfigViewModel(),
+    configViewModel: ConfigViewModel = viewModel(),
 ) {
-    val configState by configViewModel.configUiStateFlow.collectAsState()
-
-    DisposableEffect(Unit) {
-        onDispose {
-            configViewModel.dispose()
-        }
-    }
+    val configState by configViewModel.uiState.collectAsStateWithLifecycle()
 
     Box(
         modifier = modifier,
@@ -303,7 +324,7 @@ private fun TextFieldWithLabel(
     label: String,
     value: String,
     validator: (String) -> Boolean = { true },
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf(value) }
 
@@ -333,7 +354,7 @@ private fun ContentWithLabel(
     modifier: Modifier = Modifier,
     label: String,
     textStyle: TextStyle,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     Row(
         modifier = modifier,
@@ -380,9 +401,6 @@ private fun ContentWithLabel(
 //        )
 //    }
 //}
-
-@Composable
-private fun rememberConfigViewModel(): ConfigViewModel = rememberSaveable { ConfigViewModel() }
 
 @Composable
 @Preview
