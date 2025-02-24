@@ -16,6 +16,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.CoroutineScope
 import screen.config.ConfigScreen
+import screen.diff.DiffScreen
 import screen.main.MainScreen
 
 @Composable
@@ -23,6 +24,7 @@ import screen.main.MainScreen
 private fun App() {
     MaterialTheme {
         var showConfig by rememberSaveable { mutableStateOf(false) }
+        var showDiff by rememberSaveable { mutableStateOf(false) }
         val scope: CoroutineScope = rememberCoroutineScope()
 
         Surface {
@@ -30,7 +32,8 @@ private fun App() {
                 MainScreen(
                     modifier = Modifier.fillMaxSize(),
                     scope = scope,
-                    onConfigClick = { showConfig = true }
+                    onConfigClick = { showConfig = true },
+                    onDiffClick = { showDiff = true },
                 )
 
                 if (showConfig) {
@@ -38,6 +41,13 @@ private fun App() {
                         scope = scope,
                         onOutsideClick = { showConfig = false },
                         onCloseClick = { showConfig = false },
+                    )
+                }
+
+                if (showDiff) {
+                    DiffScreen(
+                        onOutsideClick = { showDiff = false },
+                        onCloseClick = { showDiff = false },
                     )
                 }
             }

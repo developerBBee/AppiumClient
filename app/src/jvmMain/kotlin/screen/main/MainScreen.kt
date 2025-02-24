@@ -28,9 +28,11 @@ import androidx.compose.material.Tab
 import androidx.compose.material.TabRow
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Difference
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +59,7 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     scope: CoroutineScope,
     onConfigClick: () -> Unit,
+    onDiffClick: () -> Unit,
     mainViewModel: MainViewModel = viewModel(),
 ) {
     val mainStates by mainViewModel.uiStateFlow.collectAsState()
@@ -65,7 +68,9 @@ fun MainScreen(
         modifier = modifier,
         scope = scope,
         stateList = mainStates,
+        onTargetChanged = mainViewModel::changeCurrentTarget,
         onConfigClick = onConfigClick,
+        onDiffClick = onDiffClick,
         onButtonClick = { state ->
             when (state.buttonState) {
                 ButtonState.RUNNABLE -> mainViewModel.run(state.targetId)
@@ -81,36 +86,58 @@ private fun MainBaseLayout(
     modifier: Modifier = Modifier,
     scope: CoroutineScope,
     stateList: List<MainUiState>,
+    onTargetChanged: (TargetId) -> Unit,
     onConfigClick: () -> Unit,
+    onDiffClick: () -> Unit,
     onButtonClick: (MainUiState) -> Unit,
 ) {
+    val iconButtonsEnabled = stateList.all { !it.progress }
+
     Column(modifier = modifier) {
-        IconButton(
-            enabled = stateList.map { it.configEnabled }.all { it },
-            onClick = onConfigClick
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                tint = MaterialTheme.colors.primaryVariant,
-                contentDescription = "設定"
-            )
+        Row {
+            IconButton(
+                enabled = iconButtonsEnabled,
+                onClick = onConfigClick
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    tint = MaterialTheme.colors.primaryVariant,
+                    contentDescription = "設定"
+                )
+            }
+
+            IconButton(
+                enabled = iconButtonsEnabled,
+                onClick = onDiffClick
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Difference,
+                    tint = MaterialTheme.colors.primaryVariant,
+                    contentDescription = "スクリーンショット差分"
+                )
+            }
         }
 
         if (stateList.isEmpty()) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         } else {
             val pagerState = rememberPagerState { stateList.size }
+            val currentPage = pagerState.currentPage
+
+            LaunchedEffect(currentPage) {
+                onTargetChanged(stateList[currentPage].targetId)
+            }
 
             TabRow(
                 modifier = Modifier.background(color = Color.White),
-                selectedTabIndex = pagerState.currentPage,
+                selectedTabIndex = currentPage,
                 backgroundColor = MaterialTheme.colors.background,
                 contentColor = MaterialTheme.colors.primaryVariant,
             ) {
                 stateList.forEachIndexed { index, data ->
                     Tab(
                         text = { Text(text = data.targetName, style = MaterialTheme.typography.button) },
-                        selected = pagerState.currentPage == index,
+                        selected = currentPage == index,
                         onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
                     )
                 }
@@ -317,7 +344,9 @@ private fun MainScreenPreview() {
                 runState = MainRunState.Idle
             ),
         ),
+        onTargetChanged = {},
         onConfigClick = {},
+        onDiffClick = {},
         onButtonClick = {}
     )
 }

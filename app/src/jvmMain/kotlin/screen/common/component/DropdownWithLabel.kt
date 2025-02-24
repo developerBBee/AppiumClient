@@ -1,8 +1,7 @@
-package screen.config.component
+package screen.common.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -32,7 +31,7 @@ fun DropdownWithLabel(
     ) {
         val dropdownState = remember { DropdownMenuState() }
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints {
             OutlinedTextField(
                 enabled = false,
                 value = currentItemText,

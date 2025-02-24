@@ -40,8 +40,8 @@ import data.Target
 import data.senario.ScenarioName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import screen.config.component.DropdownWithLabel
-import screen.config.component.TextFieldWithLabel
+import screen.common.component.DropdownWithLabel
+import screen.common.component.TextFieldWithLabel
 
 @Composable
 fun ConfigScreen(

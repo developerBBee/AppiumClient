@@ -19,12 +19,6 @@ data class MainUiState(
     val runState: MainRunState,
 ) {
 
-    val configEnabled: Boolean = when (runState) {
-        MainRunState.Running,
-        MainRunState.Cancelling -> false
-        else -> true
-    }
-
     val progress: Boolean = when (runState) {
         MainRunState.Running,
         MainRunState.Cancelling -> true
@@ -50,7 +44,7 @@ data class MainUiState(
         is MainRunState.Error,
         is MainRunState.Finished -> ButtonState.RUNNABLE
         MainRunState.Running -> ButtonState.CANCELABLE
-        else -> ButtonState.DISABLE
+        MainRunState.Cancelling -> ButtonState.DISABLE
     }
 }
 

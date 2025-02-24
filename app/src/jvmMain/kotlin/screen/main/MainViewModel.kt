@@ -2,6 +2,7 @@ package screen.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import data.Target
 import data.TargetId
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +11,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -26,6 +26,7 @@ import usecase.GetPrivateIpAddressUseCase
 import usecase.GetTargetsUseCase
 import usecase.LaunchServerUseCase
 import usecase.SaveConfigUseCase
+import usecase.SetScreenshotTargetUseCase
 import usecase.StopServerUseCase
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -42,6 +43,8 @@ class MainViewModel : ViewModel() {
 
     private var privateIpAddress: String? = GetPrivateIpAddressUseCase()
 
+    private val targetsFlow = MutableStateFlow<List<Target>>(emptyList())
+
     init {
         GetTargetsUseCase()
             .map { targets ->
@@ -54,6 +57,11 @@ class MainViewModel : ViewModel() {
                     }
                     ?: targets
             }
+            .onEach { targetsFlow.value = it }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+
+        targetsFlow
             .onEach { targets ->
                 _uiStateFlow.value = targets
                     .map { target ->
@@ -66,7 +74,6 @@ class MainViewModel : ViewModel() {
                         )
                     }
             }
-            .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
     }
 
@@ -88,7 +95,7 @@ class MainViewModel : ViewModel() {
     }
 
     suspend fun runEvents(targetId: TargetId) {
-        val target = GetTargetsUseCase().first().first { it.id == targetId }
+        val target = targetsFlow.value.first { it.id == targetId }
 
         mutex.withLock {
             if (_serverProcess == null) {
@@ -196,6 +203,12 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    fun changeCurrentTarget(targetId: TargetId) {
+        val target = targetsFlow.value.first { it.id == targetId }
+
+        SetScreenshotTargetUseCase(target = target)
     }
 
     override fun onCleared() {
