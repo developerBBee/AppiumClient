@@ -35,7 +35,6 @@ private fun App() {
 
                 if (showConfig) {
                     ConfigScreen(
-                        modifier = Modifier.fillMaxSize(),
                         scope = scope,
                         onOutsideClick = { showConfig = false },
                         onCloseClick = { showConfig = false },

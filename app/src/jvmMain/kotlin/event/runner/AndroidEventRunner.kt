@@ -9,7 +9,6 @@ import io.appium.java_client.android.options.UiAutomator2Options
 import kotlinx.coroutines.delay
 import org.openqa.selenium.remote.SessionId
 import util.DATE_TIME_SEPARATE_FORMAT
-import util.NO_DELIMITER_MILLIS_FORMAT
 import util.longClick
 import util.takeScreenshotToFile
 import java.nio.file.Path
@@ -34,6 +33,8 @@ class AndroidEventRunner(
 
     private val dirPath
         get() = baseDirPath.resolve(currentDateTime.format(DATE_TIME_SEPARATE_FORMAT))
+
+    private var noNameScreenshotCount = 0
 
     /** 最初に必ず呼ぶ */
     override suspend fun start(): SessionId {
@@ -153,7 +154,7 @@ class AndroidEventRunner(
     }
 
     private fun takeScreenshot(screenshotName: String? = null) {
-        val fileName = screenshotName ?: LocalDateTime.now().format(NO_DELIMITER_MILLIS_FORMAT)
+        val fileName = screenshotName ?: "NO_NAME_%05d".format(noNameScreenshotCount++)
         val filePath = dirPath.resolve("$fileName.png")
         driver.takeScreenshotToFile(filePath)
     }

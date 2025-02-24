@@ -108,10 +108,9 @@ class MainViewModel : ViewModel() {
 
         jobs[targetId] = ExecuteEventsUseCase(target = target)
             .onEach { index ->
-                updateRunState(
+                updateIndex(
                     targetId = targetId,
                     index = index,
-                    runState = MainRunState.Running,
                 )
             }
             .onCompletion {
@@ -171,15 +170,31 @@ class MainViewModel : ViewModel() {
 
     private fun updateRunState(
         targetId: TargetId,
-        index: Int = 0,
         runState: MainRunState,
     ) {
-        val targetState = uiStateFlow.value.first { it.targetId == targetId }
-        _uiStateFlow.update {
-            val mutableList = it.toMutableList()
-            val i = it.indexOf(targetState)
-            mutableList[i] = targetState.copy(runState = runState, currentIndex = index)
-            mutableList.toList()
+        _uiStateFlow.update { states ->
+            states.map {
+                if (it.targetId == targetId) {
+                    it.copy(runState = runState)
+                } else {
+                    it
+                }
+            }
+        }
+    }
+
+    private fun updateIndex(
+        targetId: TargetId,
+        index: Int,
+    ) {
+        _uiStateFlow.update { states ->
+            states.map {
+                if (it.targetId == targetId) {
+                    it.copy(currentIndex = index)
+                } else {
+                    it
+                }
+            }
         }
     }
 
