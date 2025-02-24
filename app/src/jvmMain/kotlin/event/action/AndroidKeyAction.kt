@@ -19,6 +19,10 @@ data class AndroidKeyAction(
     override suspend fun execute(runner: EventRunner) {
         runner.inputAndroidKey(this)
     }
+
+    override fun getActionName(): String = key.name
+
+    override fun getActionTarget(): String = ""
 }
 
 class AndroidKeyActionBuilder(

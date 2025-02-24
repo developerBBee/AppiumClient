@@ -18,6 +18,10 @@ data class TapAction(
     override suspend fun execute(runner: EventRunner) {
         runner.tap(this)
     }
+
+    override fun getActionName(): String = "タップ"
+
+    override fun getActionTarget(): String = viewId
 }
 
 class TapActionBuilder(

@@ -13,6 +13,9 @@ sealed class EventAction {
     abstract val screenshotName: String?
 
     abstract suspend fun execute(runner: EventRunner)
+
+    abstract fun getActionName(): String
+    abstract fun getActionTarget(): String
 }
 
 @DslEventAction

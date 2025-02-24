@@ -3,61 +3,91 @@ package screen.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.TargetId
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import usecase.*
+import usecase.ExecuteEventsUseCase
+import usecase.GetPrivateIpAddressUseCase
+import usecase.GetTargetsUseCase
+import usecase.LaunchServerUseCase
+import usecase.SaveConfigUseCase
+import usecase.StopServerUseCase
+import kotlin.coroutines.cancellation.CancellationException
 
 class MainViewModel : ViewModel() {
 
     private val mutex = Mutex()
 
-    private val _mainStateFlow = MutableStateFlow<Map<TargetId, MainState>>(emptyMap())
-    val mainStateFlow: StateFlow<Map<TargetId, MainState>> = _mainStateFlow.asStateFlow()
+    private val _uiStateFlow = MutableStateFlow<List<MainUiState>>(emptyList())
+    val uiStateFlow: StateFlow<List<MainUiState>> = _uiStateFlow.asStateFlow()
 
     private val jobs: MutableMap<TargetId, Job> = mutableMapOf()
     private var _serverProcess: Process? = null
     private val serverProcess: Process get() = requireNotNull(_serverProcess)
 
-    private var loadingJob: Job? = null
-
-    private var ipAddress: String? = GetPrivateIpAddressUseCase()
+    private var privateIpAddress: String? = GetPrivateIpAddressUseCase()
 
     init {
-        loadingJob = GetTargetsUseCase()
+        GetTargetsUseCase()
             .map { targets ->
-                ipAddress?.let { privateIpAddress ->
-                    targets.map { target ->
-                        target.copy(configuration = target.configuration.copy(host = privateIpAddress))
-                    }.also { SaveConfigUseCase(it) }
-                } ?: targets
+                privateIpAddress
+                    ?.let { privateIpAddress ->
+                        // ホストマシンのプライベートIPアドレスでコンフィグのホストを設定する
+                        targets
+                            .map { it.copy(configuration = it.configuration.copy(host = privateIpAddress)) }
+                            .also { SaveConfigUseCase(it) }
+                    }
+                    ?: targets
             }
             .onEach { targets ->
-                _mainStateFlow.value = targets.associate { target ->
-                    target.id to MainState(
-                        targetId = target.id,
-                        targetName = target.name,
-                        runState = MainRunState.Idle,
-                    )
-                }
+                _uiStateFlow.value = targets
+                    .map { target ->
+                        MainUiState(
+                            targetId = target.id,
+                            targetName = target.name,
+                            currentIndex = -1,
+                            actions = target.scenario.getActions(),
+                            runState = MainRunState.Idle,
+                        )
+                    }
             }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
     }
 
-    suspend fun runAll() {
+    fun runAll() {
         TODO()
     }
 
-    suspend fun run(targetId: TargetId) {
+    fun run(targetId: TargetId) {
         if (jobs[targetId] != null) return
 
         updateRunState(
             targetId = targetId,
-            runState = MainRunState.Running(log = "Start")
+            runState = MainRunState.Running
         )
 
+        viewModelScope.launch {
+            runEvents(targetId = targetId)
+        }
+    }
+
+    suspend fun runEvents(targetId: TargetId) {
         val target = GetTargetsUseCase().first().first { it.id == targetId }
 
         mutex.withLock {
@@ -77,10 +107,11 @@ class MainViewModel : ViewModel() {
         }
 
         jobs[targetId] = ExecuteEventsUseCase(target = target)
-            .onEach { log ->
+            .onEach { index ->
                 updateRunState(
                     targetId = targetId,
-                    runState = MainRunState.Running(log = log)
+                    index = index,
+                    runState = MainRunState.Running,
                 )
             }
             .onCompletion {
@@ -111,19 +142,21 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    suspend fun cancel(targetId: TargetId) {
+    fun cancel(targetId: TargetId) {
         updateRunState(
             targetId = targetId,
-            runState = MainRunState.Cancelling(log = "Cancelling")
+            runState = MainRunState.Cancelling
         )
 
-        jobs[targetId]?.cancelAndJoin()
-        removeJob(targetId)
+        viewModelScope.launch {
+            jobs[targetId]?.cancelAndJoin()
+            removeJob(targetId)
 
-        updateRunState(
-            targetId = targetId,
-            runState = MainRunState.Finished(isCompletion = false)
-        )
+            updateRunState(
+                targetId = targetId,
+                runState = MainRunState.Finished(isCompletion = false)
+            )
+        }
     }
 
     private fun detectError(
@@ -136,26 +169,21 @@ class MainViewModel : ViewModel() {
         )
     }
 
-    private fun updateRunState(targetId: TargetId, runState: MainRunState) {
-        val targetState = mainStateFlow.value.getValue(targetId)
-        _mainStateFlow.value += (targetId to targetState.copy(runState = runState))
+    private fun updateRunState(
+        targetId: TargetId,
+        index: Int = 0,
+        runState: MainRunState,
+    ) {
+        val targetState = uiStateFlow.value.first { it.targetId == targetId }
+        _uiStateFlow.update {
+            val mutableList = it.toMutableList()
+            val i = it.indexOf(targetState)
+            mutableList[i] = targetState.copy(runState = runState, currentIndex = index)
+            mutableList.toList()
+        }
     }
 
     override fun onCleared() {
         _serverProcess?.destroy()
     }
 }
-
-sealed interface MainRunState {
-    data object Idle : MainRunState
-    data class Running(val log: String) : MainRunState
-    data class Cancelling(val log: String) : MainRunState
-    data class Finished(val isCompletion: Boolean) : MainRunState
-    data class Error(val message: String) : MainRunState
-}
-
-data class MainState(
-    val targetId: TargetId,
-    val targetName: String,
-    val runState: MainRunState,
-)

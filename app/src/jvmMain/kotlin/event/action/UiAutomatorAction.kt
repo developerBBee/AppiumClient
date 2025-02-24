@@ -14,11 +14,20 @@ data class UiAutomatorAction(
     override val screenshotName: String?,
     val action: ViewAction,
     val uiAutomatorText: String,
-    val actionData: String? = null,
 ) : EventAction() {
 
+    private val actionName = when (action) {
+        ViewAction.TapAction -> "タップ"
+        is ViewAction.InputText -> "テキスト入力[${action.text}]"
+    }
     override suspend fun execute(runner: EventRunner) {
         runner.runUiAutomator(this)
+    }
+
+    override fun getActionName(): String = actionName
+
+    override fun getActionTarget(): String {
+        TODO("Not yet implemented")
     }
 }
 
@@ -32,7 +41,7 @@ class UiAutomatorTapActionBuilder(
         return UiAutomatorAction(
             nextWait = nextWait,
             screenshotName = screenshotName,
-            action = ViewAction.TAP,
+            action = ViewAction.TapAction,
             uiAutomatorText = uiAutomatorText,
         )
     }
@@ -49,14 +58,13 @@ class UiAutomatorInputActionBuilder(
         return UiAutomatorAction(
             nextWait = nextWait,
             screenshotName = screenshotName,
-            action = ViewAction.INPUT_TEXT,
+            action = ViewAction.InputText(text = text),
             uiAutomatorText = uiAutomatorText,
-            actionData = text,
         )
     }
 }
 
-enum class ViewAction {
-    TAP,
-    INPUT_TEXT,
+sealed interface ViewAction {
+    data object TapAction : ViewAction
+    data class InputText(val text: String) : ViewAction
 }

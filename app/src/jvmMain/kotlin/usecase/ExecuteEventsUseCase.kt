@@ -11,10 +11,11 @@ object ExecuteEventsUseCase {
             targetName = target.name,
             config = target.configuration
         ).use { runner ->
-            val sessionId = runner.start()
-            emit(sessionId.toString())
+            runner.start()
 
-            target.scenario.getActions().forEach { action ->
+            target.scenario.getActions().forEachIndexed { index, action ->
+                emit(index)
+
                 action.execute(runner)
             }
         }

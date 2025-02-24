@@ -19,6 +19,10 @@ data class InputTextAction(
     override suspend fun execute(runner: EventRunner) {
         runner.inputText(this)
     }
+
+    override fun getActionName(): String = "テキスト入力[$text]"
+
+    override fun getActionTarget(): String = viewId
 }
 
 class InputTextActionBuilder(

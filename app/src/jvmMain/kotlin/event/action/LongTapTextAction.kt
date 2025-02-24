@@ -17,6 +17,10 @@ data class LongTapTextAction(
     override suspend fun execute(runner: EventRunner) {
         runner.longTapText(this)
     }
+
+    override fun getActionName(): String = "長押し"
+
+    override fun getActionTarget(): String = text
 }
 
 class LongTapTextActionBuilder(

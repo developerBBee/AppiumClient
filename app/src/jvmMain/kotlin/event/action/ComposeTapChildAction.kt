@@ -28,6 +28,13 @@ data class ComposeTapChildAction(
     override suspend fun execute(runner: EventRunner) {
         runner.tapChildCompose(this)
     }
+
+    override fun getActionName(): String = "子タップ"
+
+    override fun getActionTarget(): String {
+        val subItem = subTag?.let { "の$it" } ?: ""
+        return "${tag}の子番号$childIndex$subItem"
+    }
 }
 
 class ComposeTapChildActionBuilder(

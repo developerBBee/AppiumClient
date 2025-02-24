@@ -117,8 +117,8 @@ class AndroidEventRunner(
     override suspend fun runUiAutomator(action: UiAutomatorAction) {
         val view = driver.findElement(AppiumBy.androidUIAutomator(action.uiAutomatorText))
         when (action.action) {
-            ViewAction.TAP -> view.click()
-            ViewAction.INPUT_TEXT -> view.sendKeys(action.actionData)
+            ViewAction.TapAction -> view.click()
+            is ViewAction.InputText -> view.sendKeys(action.action.text)
         }
         delayAfterTakeScreenshot(action)
     }

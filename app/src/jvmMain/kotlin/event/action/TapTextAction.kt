@@ -21,6 +21,10 @@ data class TapTextAction(
     override suspend fun execute(runner: EventRunner) {
         runner.tapText(this)
     }
+
+    override fun getActionName(): String = "タップ"
+
+    override fun getActionTarget(): String = text
 }
 
 class TapTextActionBuilder(

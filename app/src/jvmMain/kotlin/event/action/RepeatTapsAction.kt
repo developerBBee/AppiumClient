@@ -21,6 +21,10 @@ data class RepeatTapsAction(
     override suspend fun execute(runner: EventRunner) {
         runner.repeatTaps(this)
     }
+
+    override fun getActionName(): String = "連打 ${interval}間隔 ${repeat}回"
+
+    override fun getActionTarget(): String = viewId
 }
 
 class RepeatTapsActionBuilder(

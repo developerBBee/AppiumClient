@@ -2,6 +2,7 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.runtime.*
@@ -24,20 +25,22 @@ private fun App() {
         var showConfig by rememberSaveable { mutableStateOf(false) }
         val scope: CoroutineScope = rememberCoroutineScope()
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            MainScreen(
-                modifier = Modifier.fillMaxSize(),
-                scope = scope,
-                onConfigClick = { showConfig = true }
-            )
-
-            if (showConfig) {
-                ConfigScreen(
+        Surface {
+            Box(modifier = Modifier.fillMaxSize()) {
+                MainScreen(
                     modifier = Modifier.fillMaxSize(),
                     scope = scope,
-                    onOutsideClick = { showConfig = false },
-                    onCloseClick = { showConfig = false },
+                    onConfigClick = { showConfig = true }
                 )
+
+                if (showConfig) {
+                    ConfigScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        scope = scope,
+                        onOutsideClick = { showConfig = false },
+                        onCloseClick = { showConfig = false },
+                    )
+                }
             }
         }
     }

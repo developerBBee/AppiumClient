@@ -12,6 +12,7 @@ import kotlin.time.Duration.Companion.seconds
 data class ComposeInputTextAction(
     override val nextWait: Duration,
     override val screenshotName: String?,
+    private val tag: String,
     val uiAutomatorText: String,
     val text: String,
 ) : EventAction() {
@@ -19,6 +20,10 @@ data class ComposeInputTextAction(
     override suspend fun execute(runner: EventRunner) {
         runner.inputTextCompose(this)
     }
+
+    override fun getActionName(): String = "テキスト入力[$text]"
+
+    override fun getActionTarget(): String = tag
 }
 
 class ComposeInputTextActionBuilder(
@@ -32,6 +37,7 @@ class ComposeInputTextActionBuilder(
         return ComposeInputTextAction(
             nextWait = nextWait,
             screenshotName = screenshotName,
+            tag = tag,
             uiAutomatorText = "new UiSelector().resourceId(\"$tag\")",
             text = text
         )

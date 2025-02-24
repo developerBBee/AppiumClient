@@ -26,6 +26,13 @@ data class TapChildAction(
     override suspend fun execute(runner: EventRunner) {
         runner.tapChild(this)
     }
+
+    override fun getActionName(): String = "子タップ"
+
+    override fun getActionTarget(): String {
+        val subItem = subViewId?.let { "の$it" } ?: ""
+        return "${viewId}の子番号$childIndex$subItem"
+    }
 }
 
 class TapChildActionBuilder(

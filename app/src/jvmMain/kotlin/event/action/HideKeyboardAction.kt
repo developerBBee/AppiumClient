@@ -17,6 +17,10 @@ data class HideKeyboardAction(
     override suspend fun execute(runner: EventRunner) {
         runner.hideKeyboard(this)
     }
+
+    override fun getActionName(): String = "キーボード閉じる"
+
+    override fun getActionTarget(): String = ""
 }
 
 class HideKeyboardActionBuilder : EventActionBuilder {

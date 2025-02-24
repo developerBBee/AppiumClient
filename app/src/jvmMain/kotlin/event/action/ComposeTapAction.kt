@@ -12,12 +12,17 @@ import kotlin.time.Duration.Companion.seconds
 class ComposeTapAction (
     override val nextWait: Duration,
     override val screenshotName: String?,
+    private val tag: String,
     val uiAutomatorText: String,
 ) : EventAction() {
 
     override suspend fun execute(runner: EventRunner) {
         runner.tapCompose(this)
     }
+
+    override fun getActionName(): String = "タップ"
+
+    override fun getActionTarget(): String = tag
 }
 
 class ComposeTapActionBuilder(
@@ -30,7 +35,8 @@ class ComposeTapActionBuilder(
         return ComposeTapAction(
             nextWait = nextWait,
             screenshotName = screenshotName,
-            uiAutomatorText = "new UiSelector().resourceId(\"$tag\")"
+            tag = tag,
+            uiAutomatorText = "new UiSelector().resourceId(\"$tag\")",
         )
     }
 }
