@@ -1,6 +1,6 @@
 package usecase
 
-import screen.diff.CompareFileResult
+import screen.diff.ComparedFile
 import screen.diff.CompareResult
 import util.filterImageFile
 import java.nio.file.Files
@@ -13,7 +13,7 @@ object CompareFilesUseCase {
     operator fun invoke(
         leftDir: Path,
         rightDir: Path,
-    ): List<CompareFileResult> {
+    ): List<ComparedFile> {
         val leftFiles = leftDir.listDirectoryEntries().filterImageFile()
         val rightFiles = rightDir.listDirectoryEntries().filterImageFile()
 
@@ -41,7 +41,7 @@ object CompareFilesUseCase {
                 }
             }
             .map { (fileName, result) ->
-                CompareFileResult(fileName = fileName, result = result)
+                ComparedFile(fileName = fileName, result = result)
             }
     }
 }
