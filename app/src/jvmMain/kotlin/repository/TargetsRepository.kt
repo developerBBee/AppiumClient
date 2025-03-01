@@ -8,20 +8,25 @@ import kotlinx.serialization.encodeToString
 import util.Constant
 import util.DefaultJson
 import util.IOScope
-import java.io.File
+import util.USER_DIR_PATH
+import java.nio.file.Path
+import kotlin.io.path.createDirectory
+import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 object TargetsRepository {
-    private val targetsFile: File
+    private val targetsFile: Path
     private val _targetsFlow = MutableStateFlow<List<Target>>(emptyList())
     private val targetsFlow: Flow<List<Target>> = _targetsFlow.filterNot { it.isEmpty() }
 
     init {
-        val userHome = System.getProperty(Constant.USER_HOME)
-        val appDir = File(userHome, Constant.APP_DIR)
-        if (!appDir.exists()) {
-            appDir.mkdir()
+        val clientDirPath = USER_DIR_PATH / Constant.CLIENT_DIR
+        if (!clientDirPath.exists()) {
+            clientDirPath.createDirectory()
         }
-        targetsFile = File(appDir, Constant.TARGETS_FILE_NAME)
+        targetsFile = clientDirPath / Constant.TARGETS_FILE_NAME
 
         IOScope.launch {
             _targetsFlow.emit(loadTargets())

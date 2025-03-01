@@ -2,8 +2,9 @@ package data
 
 import kotlinx.serialization.Serializable
 import util.Constant
-import java.io.File
+import util.DEFAULT_APP_FILE_PATH
 import java.net.URI
+import kotlin.io.path.pathString
 
 /**
  * Represents the Appium capabilities.
@@ -15,7 +16,7 @@ data class AppiumConfiguration(
 //    val path: String = Constant.DEFAULT_PATH,
 //    val sslEnabled: Boolean = Constant.DEFAULT_SSL_ENABLED,
     val udid: String = Constant.DEFAULT_UDID,
-    val app: String = DEFAULT_APP_PATH,
+    val app: String = DEFAULT_APP_FILE_PATH.pathString,
 ) {
 //    @Transient
 //    private val scheme = if (sslEnabled) Constant.SECURE_SCHEME else Constant.DEFAULT_SCHEME
@@ -23,8 +24,6 @@ data class AppiumConfiguration(
 //    @Transient
 //    val uri: URI = runCatching { URI.create("$scheme://$host:$port$path") }.getOrDefault(DEFAULT_URI)
 }
-
-private val DEFAULT_APP_PATH = File(System.getProperty(Constant.USER_HOME), Constant.DEFAULT_APP).absolutePath
 
 val DEFAULT_URI = URI(
     Constant.DEFAULT_SCHEME,

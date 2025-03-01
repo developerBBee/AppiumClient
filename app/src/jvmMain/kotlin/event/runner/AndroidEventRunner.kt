@@ -9,11 +9,12 @@ import io.appium.java_client.android.options.UiAutomator2Options
 import kotlinx.coroutines.delay
 import org.openqa.selenium.remote.SessionId
 import util.DATE_TIME_SEPARATE_FORMAT
+import util.SCREENSHOT_DIR_PATH
 import util.longClick
 import util.takeScreenshotToFile
-import java.nio.file.Path
 import java.time.LocalDateTime
 import kotlin.io.path.createDirectories
+import kotlin.io.path.div
 import kotlin.time.Duration.Companion.seconds
 
 class AndroidEventRunner(
@@ -25,14 +26,12 @@ class AndroidEventRunner(
     private val driver: AndroidDriver
         get() = checkNotNull(_driver) { throw DriverNotPreparedException() }
 
-    private val baseDirPath = Path.of(System.getProperty("user.home"))
-        .resolve("screenshots")
-        .resolve(targetName)
+    private val baseDirPath = SCREENSHOT_DIR_PATH / targetName
 
     private lateinit var currentDateTime: LocalDateTime
 
     private val dirPath
-        get() = baseDirPath.resolve(currentDateTime.format(DATE_TIME_SEPARATE_FORMAT))
+        get() = baseDirPath / currentDateTime.format(DATE_TIME_SEPARATE_FORMAT)
 
     private var noNameScreenshotCount = 0
 

@@ -2,7 +2,7 @@ package util
 
 object Constant {
     const val USER_HOME = "user.home"
-    const val APP_DIR = ".appium_client"
+    const val CLIENT_DIR = ".appium_client"
     const val TARGETS_FILE_NAME = "targets.json"
 
     const val DEFAULT_APP = "app-debug.apk"
@@ -14,4 +14,6 @@ object Constant {
     const val DEFAULT_PORT = 4723
     const val DEFAULT_PATH = "/"
     const val DEFAULT_SSL_ENABLED = false
+
+    const val SCREENSHOT_DIR = "screenshots"
 }

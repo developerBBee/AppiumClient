@@ -20,6 +20,7 @@ kotlin {
             // With compose.desktop.common you will also lose @Preview functionality
             implementation(compose.desktop.currentOs)
             implementation(compose.materialIconsExtended)
+            implementation(compose.components.resources)
             implementation("io.appium:java-client:9.3.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")

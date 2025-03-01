@@ -13,6 +13,7 @@ fun ContentWithLabel(
     modifier: Modifier = Modifier,
     label: String,
     textStyle: TextStyle,
+    contentWeight: Float = 3f,
     content: @Composable () -> Unit,
 ) {
     Row(
@@ -25,7 +26,7 @@ fun ContentWithLabel(
             style = textStyle,
         )
         Box(
-            modifier = Modifier.weight(3f),
+            modifier = Modifier.weight(contentWeight),
             contentAlignment = Alignment.CenterStart
         ) {
             content()
