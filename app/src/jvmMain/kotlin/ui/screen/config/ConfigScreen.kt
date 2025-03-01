@@ -1,4 +1,4 @@
-package screen.config
+package ui.screen.config
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.VerticalScrollbar
@@ -29,10 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import data.AppiumConfiguration
 import data.EMU_SAMPLE_TARGET
 import data.PresetModel
@@ -40,36 +38,31 @@ import data.Target
 import data.senario.ScenarioName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import screen.common.component.DropdownWithLabel
-import screen.common.component.TextFieldWithLabel
+import ui.screen.common.component.DropdownWithLabel
+import ui.screen.common.component.TextFieldWithLabel
+import ui.screen.common.extension.composeViewModel
 
 @Composable
 fun ConfigScreen(
+    navController: NavHostController,
     scope: CoroutineScope,
-    onOutsideClick: () -> Unit,
-    onCloseClick: () -> Unit,
-    configViewModel: ConfigViewModel = viewModel(),
+    configViewModel: ConfigViewModel = composeViewModel(),
 ) {
     val configState by configViewModel.uiState.collectAsStateWithLifecycle()
 
-    Dialog(
-        onDismissRequest = onOutsideClick,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        ConfigScreenContent(
-            modifier = Modifier
-                .fillMaxSize(fraction = 0.9f)
-                .background(color = Color.White, shape = RoundedCornerShape(16.dp))
-                .padding(16.dp)
-                .clickable(enabled = false) {},
-            scope = scope,
-            configState = configState,
-            onCloseClick = onCloseClick,
-            onAdditionClick = configViewModel::addNewTarget,
-            onRemoveClick = configViewModel::removeTarget,
-            onTargetUpdate = configViewModel::updateTarget,
-        )
-    }
+    ConfigScreenContent(
+        modifier = Modifier
+            .fillMaxSize(fraction = 0.9f)
+            .background(color = Color.White, shape = RoundedCornerShape(16.dp))
+            .padding(16.dp)
+            .clickable(enabled = false) {},
+        scope = scope,
+        configState = configState,
+        onCloseClick = navController::popBackStack,
+        onAdditionClick = configViewModel::addNewTarget,
+        onRemoveClick = configViewModel::removeTarget,
+        onTargetUpdate = configViewModel::updateTarget,
+    )
 }
 
 @Composable

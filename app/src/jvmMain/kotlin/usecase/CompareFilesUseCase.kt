@@ -1,7 +1,7 @@
 package usecase
 
-import screen.diff.ComparedFile
-import screen.diff.CompareResult
+import ui.screen.diff.ComparedFile
+import ui.screen.diff.CompareResult
 import util.filterImageFile
 import java.nio.file.Files
 import java.nio.file.Path

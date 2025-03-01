@@ -1,4 +1,4 @@
-package screen.main
+package ui.screen.main
 
 import data.TargetId
 import event.action.EventAction

@@ -1,4 +1,4 @@
-package screen.main
+package ui.screen.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

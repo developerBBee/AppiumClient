@@ -1,4 +1,4 @@
-package screen.common.component
+package ui.screen.common.component
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.MaterialTheme

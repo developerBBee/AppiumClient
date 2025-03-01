@@ -1,4 +1,4 @@
-package screen.diff
+package ui.screen.diff
 
 import java.nio.file.Path
 

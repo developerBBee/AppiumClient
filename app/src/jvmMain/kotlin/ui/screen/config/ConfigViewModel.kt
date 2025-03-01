@@ -1,4 +1,4 @@
-package screen.config
+package ui.screen.config
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

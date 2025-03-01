@@ -1,4 +1,4 @@
-package screen.main
+package ui.screen.main
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.VerticalScrollbar
@@ -45,22 +45,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import data.TargetId
 import data.senario.SAMPLE_PHONE_EMU_SCENARIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import screen.main.component.VerticalDivider
+import ui.navigation.ScreenRoute
+import ui.screen.common.extension.composeViewModel
+import ui.screen.main.component.VerticalDivider
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
+    navController: NavHostController,
     scope: CoroutineScope,
-    onConfigClick: () -> Unit,
-    onDiffClick: () -> Unit,
-    mainViewModel: MainViewModel = viewModel(),
+    mainViewModel: MainViewModel = composeViewModel(),
 ) {
     val mainStates by mainViewModel.uiStateFlow.collectAsState()
 
@@ -69,8 +70,8 @@ fun MainScreen(
         scope = scope,
         stateList = mainStates,
         onTargetChanged = mainViewModel::changeCurrentTarget,
-        onConfigClick = onConfigClick,
-        onDiffClick = onDiffClick,
+        onConfigClick = { navController.navigate(ScreenRoute.Config) },
+        onDiffClick = { navController.navigate(ScreenRoute.Diff) },
         onButtonClick = { state ->
             when (state.buttonState) {
                 ButtonState.RUNNABLE -> mainViewModel.run(state.targetId)

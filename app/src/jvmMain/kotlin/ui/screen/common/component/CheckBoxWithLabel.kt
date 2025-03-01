@@ -1,4 +1,4 @@
-package screen.common.component
+package ui.screen.common.component
 
 import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme

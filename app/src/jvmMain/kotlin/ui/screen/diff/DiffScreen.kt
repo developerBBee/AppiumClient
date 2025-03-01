@@ -1,4 +1,4 @@
-package screen.diff
+package ui.screen.diff
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Image
@@ -23,19 +23,17 @@ import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import org.jetbrains.compose.resources.ExperimentalResourceApi
-import screen.common.component.CheckboxWithLabel
-import screen.common.component.DropdownWithLabel
+import ui.screen.common.component.CheckboxWithLabel
+import ui.screen.common.component.DropdownWithLabel
+import ui.screen.common.extension.composeViewModel
 import util.decodeToBitmapPainter
 import java.nio.file.Path
 import kotlin.io.path.Path
@@ -43,76 +41,66 @@ import kotlin.io.path.name
 
 @Composable
 fun DiffScreen(
-    onOutsideClick: () -> Unit,
-    onCloseClick: () -> Unit,
-    viewModel: DiffViewModel = viewModel()
+    navController: NavHostController,
+    viewModel: DiffViewModel = composeViewModel()
 ) {
     val uiState by viewModel.uiStateFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { viewModel.loadDirs() }
-
-    DiffDialog(
-        onOutsideClick = onOutsideClick,
-        onCloseClick = onCloseClick,
+    DiffContent(
         uiState = uiState,
         onUseImageDiffChange = viewModel::changeUseImageDiff,
         onDirSelected = viewModel::changeDir,
         onFileSelected = viewModel::changeFile,
+        onBack = navController::popBackStack,
     )
 }
 
 @Composable
-private fun DiffDialog(
-    onOutsideClick: () -> Unit,
-    onCloseClick: () -> Unit,
+private fun DiffContent(
     uiState: DiffUiState,
     onUseImageDiffChange: (Boolean) -> Unit,
     onDirSelected: (SelectedDirInfo) -> Unit,
     onFileSelected: (ComparedFile) -> Unit,
+    onBack: () -> Unit,
 ) {
-    Dialog(
-        onDismissRequest = onOutsideClick,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Column(
+        modifier = Modifier
+            .fillMaxSize(fraction = 0.9f)
+            .background(color = Color.White, shape = RoundedCornerShape(16.dp))
+            .padding(16.dp)
+            .clickable(enabled = false) {},
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize(fraction = 0.9f)
-                .background(color = Color.White, shape = RoundedCornerShape(16.dp))
-                .padding(16.dp)
-                .clickable(enabled = false) {},
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                when (val state = uiState) {
-                    DiffUiState.Loading -> CircularProgressIndicator()
+        Box(modifier = Modifier.weight(1f)) {
+            when (val state = uiState) {
+                DiffUiState.Loading -> CircularProgressIndicator()
 
-                    DiffUiState.Empty -> Text(text = "スクリーンショットがありません。")
+                DiffUiState.Empty -> Text(text = "スクリーンショットがありません。")
 
-                    is DiffUiState.Success ->
-                        DiffContent(
-                            modifier = Modifier.fillMaxSize(),
-                            dirs = state.dirs,
-                            useImageDiff = state.useImageDiff,
-                            onUseImageDiffChange = onUseImageDiffChange,
-                            selectedDirInfo = state.selectedDirInfo,
-                            onDirSelected = onDirSelected,
-                            selectedFileInfo = state.selectedFileInfo,
-                            onFileSelected = onFileSelected,
-                        )
+                is DiffUiState.Success ->
+                    DiffMainContent(
+                        modifier = Modifier.fillMaxSize(),
+                        dirs = state.dirs,
+                        useImageDiff = state.useImageDiff,
+                        onUseImageDiffChange = onUseImageDiffChange,
+                        selectedDirInfo = state.selectedDirInfo,
+                        onDirSelected = onDirSelected,
+                        selectedFileInfo = state.selectedFileInfo,
+                        onFileSelected = onFileSelected,
+                    )
 
-                    is DiffUiState.Error -> Text(text = state.throwable.stackTraceToString())
-                }
+                is DiffUiState.Error -> Text(text = state.throwable.stackTraceToString())
             }
+        }
 
-            OutlinedButton(onClick = onCloseClick) {
-                Text(text = "閉じる")
-            }
+        OutlinedButton(onClick = onBack) {
+            Text(text = "閉じる")
         }
     }
 }
 
 @Composable
-private fun DiffContent(
+private fun DiffMainContent(
     modifier: Modifier = Modifier,
     dirs: List<Path>,
     useImageDiff: Boolean,
@@ -264,12 +252,11 @@ private fun DiffContentPreview() {
         selectedFileInfo = null,
     )
 
-    DiffDialog(
-        onOutsideClick = {},
-        onCloseClick = {},
+    DiffContent(
         uiState = uiState,
         onUseImageDiffChange = {},
         onDirSelected = {},
         onFileSelected = {},
+        onBack = {}
     )
 }

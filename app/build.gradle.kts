@@ -26,6 +26,9 @@ kotlin {
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.1")
+            implementation("org.jetbrains.androidx.navigation:navigation-compose:2.8.0-alpha08")
+            val kotlinVersion = extra["kotlin.version"] as String
+            implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
         }
 
         jvmTest.dependencies {
@@ -46,8 +49,4 @@ compose.desktop {
             packageVersion = "1.0.0"
         }
     }
-}
-
-kotlin {
-    jvmToolchain(21)
 }

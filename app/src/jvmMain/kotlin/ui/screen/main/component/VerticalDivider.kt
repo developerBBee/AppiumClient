@@ -1,4 +1,4 @@
-package screen.main.component
+package ui.screen.main.component
 
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width

@@ -1,4 +1,4 @@
-package screen.diff
+package ui.screen.diff
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -81,25 +81,7 @@ class DiffViewModel : ViewModel() {
             _selectedFileFlow.value = fileInfo.copy(leftImagePath = images.first, rightImagePath = images.second)
         }
         .launchIn(viewModelScope)
-    }
 
-    private fun compareFiles(leftDir: Path, rightDir: Path): List<ComparedFile> {
-        return CompareFilesUseCase(leftDir = leftDir, rightDir = rightDir)
-    }
-
-    private suspend fun compareImage(
-        left: Path,
-        right: Path,
-        useImageDiff: Boolean,
-    ): Pair<Path?, Path?> = withContext(Dispatchers.IO) {
-        GetImagePathUseCase(
-            leftFilePath = left,
-            rightFilePath = right,
-            useImageDiff = useImageDiff
-        )
-    }
-
-    fun loadDirs() {
         // フォルダを取得する（１回のみ）
         GetScreenshotDirsUseCase()
             .take(1)
@@ -125,6 +107,22 @@ class DiffViewModel : ViewModel() {
             }
             .take(1)
             .launchIn(viewModelScope)
+    }
+
+    private fun compareFiles(leftDir: Path, rightDir: Path): List<ComparedFile> {
+        return CompareFilesUseCase(leftDir = leftDir, rightDir = rightDir)
+    }
+
+    private suspend fun compareImage(
+        left: Path,
+        right: Path,
+        useImageDiff: Boolean,
+    ): Pair<Path?, Path?> = withContext(Dispatchers.IO) {
+        GetImagePathUseCase(
+            leftFilePath = left,
+            rightFilePath = right,
+            useImageDiff = useImageDiff
+        )
     }
 
     fun changeUseImageDiff(use: Boolean) {
