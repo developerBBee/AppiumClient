@@ -11,6 +11,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -33,6 +34,9 @@ import kotlin.coroutines.cancellation.CancellationException
 class MainViewModel : ViewModel() {
 
     private val mutex = Mutex()
+
+    private val _errorFlow = MutableStateFlow<Throwable?>(null)
+    val errorFlow: StateFlow<Throwable?> = _errorFlow.asStateFlow()
 
     private val _uiStateFlow = MutableStateFlow<List<MainUiState>>(emptyList())
     val uiStateFlow: StateFlow<List<MainUiState>> = _uiStateFlow.asStateFlow()
@@ -74,6 +78,7 @@ class MainViewModel : ViewModel() {
                         )
                     }
             }
+            .catch { _errorFlow.value = it }
             .launchIn(viewModelScope)
     }
 

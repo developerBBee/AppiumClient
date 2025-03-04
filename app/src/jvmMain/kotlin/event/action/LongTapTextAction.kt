@@ -1,5 +1,7 @@
 package event.action
 
+import data.ScreenShotName
+import data.toSSName
 import event.runner.EventRunner
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
@@ -8,7 +10,7 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class LongTapTextAction(
     override val nextWait: Duration,
-    override val screenshotName: String?,
+    override val screenshotName: ScreenShotName?,
     private val text: String,
 ) : EventAction() {
 
@@ -32,7 +34,7 @@ class LongTapTextActionBuilder(
     override fun build(): EventAction {
         return LongTapTextAction(
             nextWait = nextWait,
-            screenshotName = screenshotName,
+            screenshotName = screenshotName?.toSSName(),
             text = text
         )
     }

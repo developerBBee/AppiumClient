@@ -149,7 +149,7 @@ class AndroidEventRunner(
 
     private suspend fun delayAfterTakeScreenshot(action: EventAction) {
         delay(action.nextWait)
-        takeScreenshot(screenshotName = action.screenshotName)
+        takeScreenshot(screenshotName = action.screenshotName?.value)
     }
 
     private fun takeScreenshot(screenshotName: String? = null) {

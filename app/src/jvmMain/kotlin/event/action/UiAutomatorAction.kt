@@ -1,5 +1,7 @@
 package event.action
 
+import data.ScreenShotName
+import data.toSSName
 import event.runner.EventRunner
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
@@ -11,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class UiAutomatorAction(
     override val nextWait: Duration,
-    override val screenshotName: String?,
+    override val screenshotName: ScreenShotName?,
     val action: ViewAction,
     val uiAutomatorText: String,
 ) : EventAction() {
@@ -26,9 +28,7 @@ data class UiAutomatorAction(
 
     override fun getActionName(): String = actionName
 
-    override fun getActionTarget(): String {
-        TODO("Not yet implemented")
-    }
+    override fun getActionTarget(): String = ""
 }
 
 class UiAutomatorTapActionBuilder(
@@ -40,7 +40,7 @@ class UiAutomatorTapActionBuilder(
     override fun build(): EventAction {
         return UiAutomatorAction(
             nextWait = nextWait,
-            screenshotName = screenshotName,
+            screenshotName = screenshotName?.toSSName(),
             action = ViewAction.TapAction,
             uiAutomatorText = uiAutomatorText,
         )
@@ -57,7 +57,7 @@ class UiAutomatorInputActionBuilder(
     override fun build(): EventAction {
         return UiAutomatorAction(
             nextWait = nextWait,
-            screenshotName = screenshotName,
+            screenshotName = screenshotName?.toSSName(),
             action = ViewAction.InputText(text = text),
             uiAutomatorText = uiAutomatorText,
         )

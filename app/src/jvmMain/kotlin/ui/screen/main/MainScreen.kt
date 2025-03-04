@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -45,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import data.TargetId
 import data.senario.SAMPLE_PHONE_EMU_SCENARIO
@@ -63,23 +63,36 @@ fun MainScreen(
     scope: CoroutineScope,
     mainViewModel: MainViewModel = composeViewModel(),
 ) {
-    val mainStates by mainViewModel.uiStateFlow.collectAsState()
+    val mainStates by mainViewModel.uiStateFlow.collectAsStateWithLifecycle()
+    val errorStates by mainViewModel.errorFlow.collectAsStateWithLifecycle()
 
-    MainBaseLayout(
-        modifier = modifier,
-        scope = scope,
-        stateList = mainStates,
-        onTargetChanged = mainViewModel::changeCurrentTarget,
-        onConfigClick = { navController.navigate(ScreenRoute.Config) },
-        onDiffClick = { navController.navigate(ScreenRoute.Diff) },
-        onButtonClick = { state ->
-            when (state.buttonState) {
-                ButtonState.RUNNABLE -> mainViewModel.run(state.targetId)
-                ButtonState.CANCELABLE -> mainViewModel.cancel(state.targetId)
-                ButtonState.DISABLE -> {}
-            }
+    val error = errorStates
+    if (error != null) {
+        val scrollState = rememberScrollState()
+        Box(
+            modifier = Modifier
+                .padding(20.dp)
+                .verticalScroll(scrollState)
+        ) {
+            Text(text = error.stackTraceToString())
         }
-    )
+    } else {
+        MainBaseLayout(
+            modifier = modifier,
+            scope = scope,
+            stateList = mainStates,
+            onTargetChanged = mainViewModel::changeCurrentTarget,
+            onConfigClick = { navController.navigate(ScreenRoute.Config) },
+            onDiffClick = { navController.navigate(ScreenRoute.Diff) },
+            onButtonClick = { state ->
+                when (state.buttonState) {
+                    ButtonState.RUNNABLE -> mainViewModel.run(state.targetId)
+                    ButtonState.CANCELABLE -> mainViewModel.cancel(state.targetId)
+                    ButtonState.DISABLE -> {}
+                }
+            }
+        )
+    }
 }
 
 @Composable

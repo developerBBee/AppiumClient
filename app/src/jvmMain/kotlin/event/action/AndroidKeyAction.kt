@@ -1,5 +1,7 @@
 package event.action
 
+import data.ScreenShotName
+import data.toSSName
 import event.runner.EventRunner
 import io.appium.java_client.android.nativekey.AndroidKey
 import kotlinx.serialization.Serializable
@@ -12,7 +14,7 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class AndroidKeyAction(
     override val nextWait: Duration,
-    override val screenshotName: String?,
+    override val screenshotName: ScreenShotName?,
     val key: AndroidKey,
 ) : EventAction() {
 
@@ -34,7 +36,7 @@ class AndroidKeyActionBuilder(
     override fun build(): EventAction {
         return AndroidKeyAction(
             nextWait = nextWait,
-            screenshotName = screenshotName,
+            screenshotName = screenshotName?.toSSName(),
             key = key
         )
     }

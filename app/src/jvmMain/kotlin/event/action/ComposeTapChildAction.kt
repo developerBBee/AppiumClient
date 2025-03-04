@@ -1,5 +1,7 @@
 package event.action
 
+import data.ScreenShotName
+import data.toSSName
 import event.runner.EventRunner
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
@@ -11,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class ComposeTapChildAction(
     override val nextWait: Duration,
-    override val screenshotName: String?,
+    override val screenshotName: ScreenShotName?,
     val tag: String,
     private val childIndex: Int,
     private val subTag: String?, // nullの場合は子View自体をタップ、指定された場合は子Viewが持つviewIdをタップ
@@ -50,7 +52,7 @@ class ComposeTapChildActionBuilder(
             tag = tag,
             childIndex = childIndex,
             nextWait = nextWait,
-            screenshotName = screenshotName,
+            screenshotName = screenshotName?.toSSName(),
             subTag = subTag
         )
     }
