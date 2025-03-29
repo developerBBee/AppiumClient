@@ -12,7 +12,7 @@ object Constant {
     const val SECURE_SCHEME = "https"
     const val DEFAULT_HOST = "127.0.0.1"
     const val DEFAULT_PORT = 4723
-    const val DEFAULT_PATH = "/"
+    const val DEFAULT_PATH = "/wd/hub"
     const val DEFAULT_SSL_ENABLED = false
 
     const val SCREENSHOT_DIR = "screenshots"

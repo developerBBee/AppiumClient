@@ -20,8 +20,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import usecase.ExecuteEventsUseCase
 import usecase.GetPrivateIpAddressUseCase
 import usecase.GetTargetsUseCase
@@ -33,17 +31,13 @@ import kotlin.coroutines.cancellation.CancellationException
 
 class MainViewModel : ViewModel() {
 
-    private val mutex = Mutex()
-
     private val _errorFlow = MutableStateFlow<Throwable?>(null)
     val errorFlow: StateFlow<Throwable?> = _errorFlow.asStateFlow()
 
     private val _uiStateFlow = MutableStateFlow<List<MainUiState>>(emptyList())
     val uiStateFlow: StateFlow<List<MainUiState>> = _uiStateFlow.asStateFlow()
 
-    private val jobs: MutableMap<TargetId, Job> = mutableMapOf()
-    private var _serverProcess: Process? = null
-    private val serverProcess: Process get() = requireNotNull(_serverProcess)
+    private val tasks = mutableListOf<Task>()
 
     private var privateIpAddress: String? = GetPrivateIpAddressUseCase()
 
@@ -87,7 +81,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun run(targetId: TargetId) {
-        if (jobs[targetId] != null) return
+        if (tasks.find { it.targetId == targetId } != null) return
 
         updateRunState(
             targetId = targetId,
@@ -102,55 +96,53 @@ class MainViewModel : ViewModel() {
     suspend fun runEvents(targetId: TargetId) {
         val target = targetsFlow.value.first { it.id == targetId }
 
-        mutex.withLock {
-            if (_serverProcess == null) {
-                try {
-                    _serverProcess = LaunchServerUseCase(
-                        host = target.configuration.host,
-                        port = target.configuration.port,
-                    )
-                } catch (ex: CancellationException) {
-                    throw ex
-                } catch (ex: Exception) {
-                    detectError(ex = ex, targetId = targetId)
-                    return
-                }
-            }
+        val serverProcess = try {
+            LaunchServerUseCase(
+                host = target.configuration.host,
+                port = target.configuration.port,
+            )
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            detectError(ex = ex, targetId = targetId)
+            return
         }
 
-        jobs[targetId] = ExecuteEventsUseCase(target = target)
+        val job = ExecuteEventsUseCase(target = target)
             .onEach { index ->
                 updateIndex(
                     targetId = targetId,
                     index = index,
                 )
             }
-            .onCompletion {
-                removeJob(targetId)
+            .onCompletion { ex ->
+                tasks.firstOrNull { it.targetId == targetId }
+                    ?.also { removeTask(it) }
 
-                val runState = when (it) {
+                val runState = when (ex) {
                     null -> MainRunState.Finished(isCompletion = true)
                     is CancellationException -> MainRunState.Finished(isCompletion = false)
-                    else -> MainRunState.Error(message = it.stackTraceToString())
+                    else -> MainRunState.Error(message = ex.stackTraceToString())
                 }
 
                 updateRunState(targetId = targetId, runState = runState)
             }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope + CoroutineName(targetId.toString()))
+
+        val task = Task(
+            targetId = targetId,
+            serverProcess = serverProcess,
+            job = job,
+        )
+        tasks.add(task)
     }
 
-    private suspend fun removeJob(targetId: TargetId) {
-        println("remove job [targetId=$targetId]")
+    private suspend fun removeTask(task: Task) {
+        println("remove task [targetId=${task.targetId}]")
 
-        jobs.remove(targetId)
-
-        mutex.withLock {
-            if (jobs.isEmpty() && _serverProcess != null) {
-                StopServerUseCase(process = serverProcess)
-                _serverProcess = null
-            }
-        }
+        tasks.remove(task)
+        StopServerUseCase(process = task.serverProcess)
     }
 
     fun cancel(targetId: TargetId) {
@@ -160,8 +152,11 @@ class MainViewModel : ViewModel() {
         )
 
         viewModelScope.launch {
-            jobs[targetId]?.cancelAndJoin()
-            removeJob(targetId)
+            tasks.find { it.targetId == targetId }
+                ?.also { task ->
+                    task.job.cancelAndJoin()
+                    removeTask(task)
+                }
 
             updateRunState(
                 targetId = targetId,
@@ -217,6 +212,14 @@ class MainViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        _serverProcess?.destroy()
+        viewModelScope.launch {
+            tasks.forEach { removeTask(it) }
+        }
     }
 }
+
+data class Task(
+    val targetId: TargetId,
+    val serverProcess: Process,
+    val job: Job,
+)
