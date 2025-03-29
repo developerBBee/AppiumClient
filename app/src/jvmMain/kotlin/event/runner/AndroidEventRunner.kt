@@ -45,7 +45,7 @@ class AndroidEventRunner(
 
         // Open AndroidDriver
         _driver = AndroidDriver(
-//            config.uri.toURL(), // このプログラムからサーバーを起動した場合はURLの指定が不要
+            config.uri.toURL(),
             options,
         )
 

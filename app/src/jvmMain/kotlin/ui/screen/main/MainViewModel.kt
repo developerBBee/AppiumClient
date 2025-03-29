@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.Target
 import data.TargetId
-import kotlinx.coroutines.CoroutineName
+import io.appium.java_client.service.local.AppiumDriverLocalService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -14,19 +14,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
+import org.jetbrains.annotations.Blocking
+import usecase.CreateAppiumServerUseCase
 import usecase.ExecuteEventsUseCase
-import usecase.GetPrivateIpAddressUseCase
 import usecase.GetTargetsUseCase
-import usecase.LaunchServerUseCase
-import usecase.SaveConfigUseCase
 import usecase.SetScreenshotTargetUseCase
-import usecase.StopServerUseCase
 import kotlin.coroutines.cancellation.CancellationException
 
 class MainViewModel : ViewModel() {
@@ -39,22 +37,10 @@ class MainViewModel : ViewModel() {
 
     private val tasks = mutableListOf<Task>()
 
-    private var privateIpAddress: String? = GetPrivateIpAddressUseCase()
-
     private val targetsFlow = MutableStateFlow<List<Target>>(emptyList())
 
     init {
         GetTargetsUseCase()
-            .map { targets ->
-                privateIpAddress
-                    ?.let { privateIpAddress ->
-                        // ホストマシンのプライベートIPアドレスでコンフィグのホストを設定する
-                        targets
-                            .map { it.copy(configuration = it.configuration.copy(host = privateIpAddress)) }
-                            .also { SaveConfigUseCase(it) }
-                    }
-                    ?: targets
-            }
             .onEach { targetsFlow.value = it }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
@@ -88,16 +74,10 @@ class MainViewModel : ViewModel() {
             runState = MainRunState.Running
         )
 
-        viewModelScope.launch {
-            runEvents(targetId = targetId)
-        }
-    }
-
-    suspend fun runEvents(targetId: TargetId) {
         val target = targetsFlow.value.first { it.id == targetId }
 
-        val serverProcess = try {
-            LaunchServerUseCase(
+        val server = try {
+            CreateAppiumServerUseCase(
                 host = target.configuration.host,
                 port = target.configuration.port,
             )
@@ -109,6 +89,7 @@ class MainViewModel : ViewModel() {
         }
 
         val job = ExecuteEventsUseCase(target = target)
+            .onStart { server.start() }
             .onEach { index ->
                 updateIndex(
                     targetId = targetId,
@@ -127,22 +108,22 @@ class MainViewModel : ViewModel() {
 
                 updateRunState(targetId = targetId, runState = runState)
             }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope + CoroutineName(targetId.toString()))
+            .launchIn(viewModelScope + Dispatchers.IO)
 
         val task = Task(
             targetId = targetId,
-            serverProcess = serverProcess,
+            server = server,
             job = job,
         )
         tasks.add(task)
     }
 
-    private suspend fun removeTask(task: Task) {
+    @Blocking
+    private fun removeTask(task: Task) {
         println("remove task [targetId=${task.targetId}]")
 
         tasks.remove(task)
-        StopServerUseCase(process = task.serverProcess)
+        task.server.stop()
     }
 
     fun cancel(targetId: TargetId) {
@@ -151,12 +132,9 @@ class MainViewModel : ViewModel() {
             runState = MainRunState.Cancelling
         )
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             tasks.find { it.targetId == targetId }
-                ?.also { task ->
-                    task.job.cancelAndJoin()
-                    removeTask(task)
-                }
+                ?.also { task -> task.job.cancelAndJoin() }
 
             updateRunState(
                 targetId = targetId,
@@ -212,14 +190,14 @@ class MainViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        viewModelScope.launch {
-            tasks.forEach { removeTask(it) }
+        tasks.forEach {
+            it.job.cancel()
         }
     }
 }
 
 data class Task(
     val targetId: TargetId,
-    val serverProcess: Process,
+    val server: AppiumDriverLocalService,
     val job: Job,
 )
