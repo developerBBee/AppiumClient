@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.Target
 import data.TargetId
-import kotlinx.coroutines.CoroutineName
+import io.appium.java_client.service.local.AppiumDriverLocalService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -14,26 +14,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import org.jetbrains.annotations.Blocking
+import usecase.CreateAppiumServerUseCase
 import usecase.ExecuteEventsUseCase
-import usecase.GetPrivateIpAddressUseCase
 import usecase.GetTargetsUseCase
-import usecase.LaunchServerUseCase
-import usecase.SaveConfigUseCase
 import usecase.SetScreenshotTargetUseCase
-import usecase.StopServerUseCase
 import kotlin.coroutines.cancellation.CancellationException
 
 class MainViewModel : ViewModel() {
-
-    private val mutex = Mutex()
 
     private val _errorFlow = MutableStateFlow<Throwable?>(null)
     val errorFlow: StateFlow<Throwable?> = _errorFlow.asStateFlow()
@@ -41,26 +35,12 @@ class MainViewModel : ViewModel() {
     private val _uiStateFlow = MutableStateFlow<List<MainUiState>>(emptyList())
     val uiStateFlow: StateFlow<List<MainUiState>> = _uiStateFlow.asStateFlow()
 
-    private val jobs: MutableMap<TargetId, Job> = mutableMapOf()
-    private var _serverProcess: Process? = null
-    private val serverProcess: Process get() = requireNotNull(_serverProcess)
-
-    private var privateIpAddress: String? = GetPrivateIpAddressUseCase()
+    private val tasks = mutableListOf<Task>()
 
     private val targetsFlow = MutableStateFlow<List<Target>>(emptyList())
 
     init {
         GetTargetsUseCase()
-            .map { targets ->
-                privateIpAddress
-                    ?.let { privateIpAddress ->
-                        // ホストマシンのプライベートIPアドレスでコンフィグのホストを設定する
-                        targets
-                            .map { it.copy(configuration = it.configuration.copy(host = privateIpAddress)) }
-                            .also { SaveConfigUseCase(it) }
-                    }
-                    ?: targets
-            }
             .onEach { targetsFlow.value = it }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
@@ -87,70 +67,63 @@ class MainViewModel : ViewModel() {
     }
 
     fun run(targetId: TargetId) {
-        if (jobs[targetId] != null) return
+        if (tasks.find { it.targetId == targetId } != null) return
 
         updateRunState(
             targetId = targetId,
             runState = MainRunState.Running
         )
 
-        viewModelScope.launch {
-            runEvents(targetId = targetId)
-        }
-    }
-
-    suspend fun runEvents(targetId: TargetId) {
         val target = targetsFlow.value.first { it.id == targetId }
 
-        mutex.withLock {
-            if (_serverProcess == null) {
-                try {
-                    _serverProcess = LaunchServerUseCase(
-                        host = target.configuration.host,
-                        port = target.configuration.port,
-                    )
-                } catch (ex: CancellationException) {
-                    throw ex
-                } catch (ex: Exception) {
-                    detectError(ex = ex, targetId = targetId)
-                    return
-                }
-            }
+        val server = try {
+            CreateAppiumServerUseCase(
+                host = target.configuration.host,
+                port = target.configuration.port,
+            )
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            detectError(ex = ex, targetId = targetId)
+            return
         }
 
-        jobs[targetId] = ExecuteEventsUseCase(target = target)
+        val job = ExecuteEventsUseCase(target = target)
+            .onStart { server.start() }
             .onEach { index ->
                 updateIndex(
                     targetId = targetId,
                     index = index,
                 )
             }
-            .onCompletion {
-                removeJob(targetId)
+            .onCompletion { ex ->
+                tasks.firstOrNull { it.targetId == targetId }
+                    ?.also { removeTask(it) }
 
-                val runState = when (it) {
+                val runState = when (ex) {
                     null -> MainRunState.Finished(isCompletion = true)
                     is CancellationException -> MainRunState.Finished(isCompletion = false)
-                    else -> MainRunState.Error(message = it.stackTraceToString())
+                    else -> MainRunState.Error(message = ex.stackTraceToString())
                 }
 
                 updateRunState(targetId = targetId, runState = runState)
             }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope + CoroutineName(targetId.toString()))
+            .launchIn(viewModelScope + Dispatchers.IO)
+
+        val task = Task(
+            targetId = targetId,
+            server = server,
+            job = job,
+        )
+        tasks.add(task)
     }
 
-    private suspend fun removeJob(targetId: TargetId) {
-        println("remove job [targetId=$targetId]")
+    @Blocking
+    private fun removeTask(task: Task) {
+        println("remove task [targetId=${task.targetId}]")
 
-        jobs.remove(targetId)
-
-        mutex.withLock {
-            if (jobs.isEmpty() && _serverProcess != null) {
-                StopServerUseCase(process = serverProcess)
-                _serverProcess = null
-            }
-        }
+        tasks.remove(task)
+        task.server.stop()
     }
 
     fun cancel(targetId: TargetId) {
@@ -159,9 +132,9 @@ class MainViewModel : ViewModel() {
             runState = MainRunState.Cancelling
         )
 
-        viewModelScope.launch {
-            jobs[targetId]?.cancelAndJoin()
-            removeJob(targetId)
+        viewModelScope.launch(Dispatchers.IO) {
+            tasks.find { it.targetId == targetId }
+                ?.also { task -> task.job.cancelAndJoin() }
 
             updateRunState(
                 targetId = targetId,
@@ -217,6 +190,14 @@ class MainViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        _serverProcess?.destroy()
+        tasks.forEach {
+            it.job.cancel()
+        }
     }
 }
+
+data class Task(
+    val targetId: TargetId,
+    val server: AppiumDriverLocalService,
+    val job: Job,
+)
