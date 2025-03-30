@@ -5,6 +5,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun CheckboxWithLabel(
@@ -19,6 +20,7 @@ fun CheckboxWithLabel(
         label = label,
         textStyle = textStyle,
         contentWeight = 0.2f,
+        contentsMargin = 4.dp,
     ) {
         Checkbox(
             modifier = Modifier,

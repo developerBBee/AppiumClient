@@ -16,4 +16,6 @@ object Constant {
     const val DEFAULT_SSL_ENABLED = false
 
     const val SCREENSHOT_DIR = "screenshots"
+    const val NO_NAME_PREFIX = "NO_NAME_"
+    const val TOLERANCE_RATE = 0.01f
 }

@@ -25,6 +25,10 @@ data class AppiumConfiguration(
 
     @Transient
     val uri: URI = runCatching { URI.create("$scheme://$host:$port$path") }.getOrDefault(DEFAULT_URI)
+
+    // ディレクトリPathと拡張子を除去したアプリ名
+    @Transient
+    val appFileName: String = app.substringAfterLast("/").removeSuffix(".apk")
 }
 
 @VisibleForTesting

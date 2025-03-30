@@ -5,12 +5,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -18,7 +20,8 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.LinearProgressIndicator
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -27,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -48,7 +52,7 @@ fun DiffScreen(
 
     DiffContent(
         uiState = uiState,
-        onUseImageDiffChange = viewModel::changeUseImageDiff,
+        onViewerSettingChange = viewModel::changeViewerSetting,
         onDirSelected = viewModel::changeDir,
         onFileSelected = viewModel::changeFile,
         onBack = navController::popBackStack,
@@ -58,7 +62,7 @@ fun DiffScreen(
 @Composable
 private fun DiffContent(
     uiState: DiffUiState,
-    onUseImageDiffChange: (Boolean) -> Unit,
+    onViewerSettingChange: (ViewerSetting) -> Unit,
     onDirSelected: (SelectedDirInfo) -> Unit,
     onFileSelected: (ComparedFile) -> Unit,
     onBack: () -> Unit,
@@ -73,21 +77,25 @@ private fun DiffContent(
     ) {
         Box(modifier = Modifier.weight(1f)) {
             when (val state = uiState) {
-                DiffUiState.Loading -> CircularProgressIndicator()
+                DiffUiState.Loading -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth().offset(y = (-8).dp))
 
                 DiffUiState.Empty -> Text(text = "スクリーンショットがありません。")
 
-                is DiffUiState.Success ->
+                is DiffUiState.Success -> {
                     DiffMainContent(
                         modifier = Modifier.fillMaxSize(),
                         dirs = state.dirs,
-                        useImageDiff = state.useImageDiff,
-                        onUseImageDiffChange = onUseImageDiffChange,
+                        viewerSetting = state.viewerSetting,
+                        onViewerSettingChange = onViewerSettingChange,
                         selectedDirInfo = state.selectedDirInfo,
                         onDirSelected = onDirSelected,
                         selectedFileInfo = state.selectedFileInfo,
                         onFileSelected = onFileSelected,
                     )
+                    if (state.progress) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().offset(y = (-8).dp))
+                    }
+                }
 
                 is DiffUiState.Error -> Text(text = state.throwable.stackTraceToString())
             }
@@ -103,8 +111,8 @@ private fun DiffContent(
 private fun DiffMainContent(
     modifier: Modifier = Modifier,
     dirs: List<Path>,
-    useImageDiff: Boolean,
-    onUseImageDiffChange: (Boolean) -> Unit,
+    viewerSetting: ViewerSetting,
+    onViewerSettingChange: (ViewerSetting) -> Unit,
     selectedDirInfo: SelectedDirInfo,
     onDirSelected: (SelectedDirInfo) -> Unit,
     selectedFileInfo: SelectedFileInfo?,
@@ -135,13 +143,37 @@ private fun DiffMainContent(
             )
         }
 
-        // 画像差分表示を切替チェックボックス
-        CheckboxWithLabel(
-            modifier = Modifier.width(120.dp).align(Alignment.CenterHorizontally),
-            label = "画像差分表示",
-            checked = useImageDiff,
-            onCheckedChange = onUseImageDiffChange
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            // 画像差分表示を切替チェックボックス
+            CheckboxWithLabel(
+                modifier = Modifier.width(140.dp),
+                textStyle = MaterialTheme.typography.body2.copy(textAlign = TextAlign.End),
+                label = "画像差分表示",
+                checked = viewerSetting.useImageDiff,
+                onCheckedChange = { onViewerSettingChange(viewerSetting.copy(useImageDiff = it)) }
+            )
+
+            // 画像差分有のみにフィルターするチェックボックス
+            CheckboxWithLabel(
+                modifier = Modifier.width(140.dp),
+                textStyle = MaterialTheme.typography.body2.copy(textAlign = TextAlign.End),
+                label = "差分有のみ",
+                checked = viewerSetting.diffOnly,
+                onCheckedChange = { onViewerSettingChange(viewerSetting.copy(diffOnly = it)) }
+            )
+
+            // 画像差分有のみにフィルターするチェックボックス
+            CheckboxWithLabel(
+                modifier = Modifier.width(140.dp),
+                textStyle = MaterialTheme.typography.body2.copy(textAlign = TextAlign.End),
+                label = "NO_NAME除外",
+                checked = viewerSetting.noNameExclude,
+                onCheckedChange = { onViewerSettingChange(viewerSetting.copy(noNameExclude = it)) }
+            )
+        }
 
         // 選択したフォルダのファイル比較一覧表示
         DiffResult(
@@ -247,14 +279,14 @@ private fun DiffContentPreview() {
     val dirs = listOf(Path("~/test1"), Path("~/test2"))
     val uiState = DiffUiState.Success(
         dirs = dirs,
-        useImageDiff = false,
+        viewerSetting = ViewerSetting(),
         selectedDirInfo = SelectedDirInfo(leftDir = dirs[0], rightDir = dirs[1], comparedFiles = emptyList()),
         selectedFileInfo = null,
     )
 
     DiffContent(
         uiState = uiState,
-        onUseImageDiffChange = {},
+        onViewerSettingChange = {},
         onDirSelected = {},
         onFileSelected = {},
         onBack = {}

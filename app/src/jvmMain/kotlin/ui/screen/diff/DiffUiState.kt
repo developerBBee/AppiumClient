@@ -8,8 +8,9 @@ sealed interface DiffUiState {
     data class Error(val throwable: Throwable) : DiffUiState
 
     data class Success(
+        val progress: Boolean = false,
         val dirs: List<Path>,
-        val useImageDiff: Boolean,
+        val viewerSetting: ViewerSetting,
         val selectedDirInfo: SelectedDirInfo,
         val selectedFileInfo: SelectedFileInfo?,
     ) : DiffUiState

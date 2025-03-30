@@ -9,11 +9,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import usecase.CompareFilesUseCase
 import usecase.GetImagePathUseCase
@@ -28,59 +32,80 @@ class DiffViewModel : ViewModel() {
     private val _dirsFlow = MutableStateFlow<List<Path>>(emptyList())
     private val notEmptyDirsFlow = _dirsFlow.filter { it.isNotEmpty() }
 
-    private val useImageDiffFlow = MutableStateFlow(false)
+    private val viewerSettingFlow = MutableStateFlow(ViewerSetting())
 
     private val _selectedDirFlow = MutableStateFlow<SelectedDirInfo?>(null)
     private val selectedDirFlow: Flow<SelectedDirInfo> = _selectedDirFlow.filterNotNull()
 
     private val _selectedFileFlow = MutableStateFlow<SelectedFileInfo?>(null)
 
+    private val selectDirProgressFlow = MutableStateFlow(false)
+    private val selectFileProgressFlow = MutableStateFlow(false)
+
+    private val progressFlow: Flow<Boolean> = combine(
+        selectDirProgressFlow,
+        selectFileProgressFlow,
+    ) { dir, file ->
+        dir || file
+    }.distinctUntilChanged()
+
     init {
         // UI更新用パラメータ監視
         combine(
             notEmptyDirsFlow,
-            useImageDiffFlow,
+            viewerSettingFlow,
             selectedDirFlow,
-            _selectedFileFlow // File選択はNullableのFlowを使用する
-        ) { dirs, useImageDiff, dirInfo, fileInfo ->
+            _selectedFileFlow, // File選択は未選択でもUIに表示するためNullableのFlowを使用する
+            progressFlow,
+        ) { dirs, viewerSetting, dirInfo, fileInfo, progress ->
             _uiStateFlow.value = DiffUiState.Success(
+                progress = progress,
                 dirs = dirs,
-                useImageDiff = useImageDiff,
+                viewerSetting = viewerSetting,
                 selectedDirInfo = dirInfo,
                 selectedFileInfo = fileInfo,
             )
-        }
-        .launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
 
         // フォルダが選ばれると２つのフォルダ内の同名ファイルを比較して、SelectedDirInfoを更新する
-        selectedDirFlow
-            .onEach {
-                val comparedFiles = compareFiles(leftDir = it.leftDir, rightDir = it.rightDir)
-                val selectedDirInfo = SelectedDirInfo(
-                    leftDir = it.leftDir,
-                    rightDir = it.rightDir,
-                    comparedFiles = comparedFiles,
-                )
-                _selectedDirFlow.value = selectedDirInfo
-            }
-            .launchIn(viewModelScope)
+        // ViewerSettingの変更があった場合に、comparedFilesのフィルタリングを更新する
+        combine(
+            selectedDirFlow,
+            viewerSettingFlow,
+        ) { dirInfo, setting ->
+            selectDirProgressFlow.value = true
+            val comparedFiles = CompareFilesUseCase(
+                leftDir = dirInfo.leftDir,
+                rightDir = dirInfo.rightDir,
+                diffOnly = setting.diffOnly,
+                noNameExclude = setting.noNameExclude,
+            )
+
+            _selectedDirFlow.value = SelectedDirInfo(
+                leftDir = dirInfo.leftDir,
+                rightDir = dirInfo.rightDir,
+                comparedFiles = comparedFiles,
+            )
+            selectDirProgressFlow.value = false
+        }.launchIn(viewModelScope + Dispatchers.IO)
 
         // ファイル選択か差分使用設定変更すると、２つのフォルダ内の同名ファイルを比較して、SelectedFileInfoを更新する
         combine(
             selectedDirFlow,
             _selectedFileFlow,
-            useImageDiffFlow,
-        ) { dirInfo, fileInfo, useImageDiff ->
+            viewerSettingFlow,
+        ) { dirInfo, fileInfo, setting ->
             if (fileInfo == null) return@combine
+            selectFileProgressFlow.value = true
 
             val left = dirInfo.leftDir / fileInfo.selectedFile.fileName
             val right = dirInfo.rightDir / fileInfo.selectedFile.fileName
 
-            val images = compareImage(left = left, right = right, useImageDiff = useImageDiff)
+            val images = compareImage(left = left, right = right, useImageDiff = setting.useImageDiff)
 
             _selectedFileFlow.value = fileInfo.copy(leftImagePath = images.first, rightImagePath = images.second)
-        }
-        .launchIn(viewModelScope)
+            selectFileProgressFlow.value = false
+        }.launchIn(viewModelScope + Dispatchers.IO)
 
         // フォルダを取得する（１回のみ）
         GetScreenshotDirsUseCase()
@@ -93,7 +118,7 @@ class DiffViewModel : ViewModel() {
                 }
             }
             .catch { _uiStateFlow.value = DiffUiState.Error(throwable = it) }
-            .launchIn(viewModelScope)
+            .launchIn(viewModelScope + Dispatchers.IO)
 
         // フォルダが取得できた場合の初期選択
         notEmptyDirsFlow
@@ -109,10 +134,6 @@ class DiffViewModel : ViewModel() {
             .launchIn(viewModelScope)
     }
 
-    private fun compareFiles(leftDir: Path, rightDir: Path): List<ComparedFile> {
-        return CompareFilesUseCase(leftDir = leftDir, rightDir = rightDir)
-    }
-
     private suspend fun compareImage(
         left: Path,
         right: Path,
@@ -125,16 +146,29 @@ class DiffViewModel : ViewModel() {
         )
     }
 
-    fun changeUseImageDiff(use: Boolean) {
-        useImageDiffFlow.value = use
+    fun changeViewerSetting(viewerSetting: ViewerSetting) = runIfNotInProgress {
+        viewerSettingFlow.value = viewerSetting
     }
 
-    fun changeDir(dirInfo: SelectedDirInfo) {
+    fun changeDir(dirInfo: SelectedDirInfo) = runIfNotInProgress {
         _selectedFileFlow.value = null
         _selectedDirFlow.value = dirInfo
     }
 
-    fun changeFile(file: ComparedFile) {
+    fun changeFile(file: ComparedFile) = runIfNotInProgress {
         _selectedFileFlow.value = SelectedFileInfo(selectedFile = file)
     }
+
+    private fun runIfNotInProgress(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            if (progressFlow.firstOrNull() == true) return@launch
+            block()
+        }
+    }
 }
+
+data class ViewerSetting(
+    val useImageDiff: Boolean = false,
+    val diffOnly: Boolean = true,
+    val noNameExclude: Boolean = true,
+)
