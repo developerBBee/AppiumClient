@@ -160,9 +160,7 @@ class DiffViewModel : ViewModel() {
     }
 
     fun refreshScreenshotDirs() = runIfNotInProgress {
-        viewModelScope.launch {
-            RefreshScreenshotDirsUseCase()
-        }
+        RefreshScreenshotDirsUseCase()
     }
 
     private fun runIfNotInProgress(block: suspend () -> Unit) {
