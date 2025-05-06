@@ -26,6 +26,7 @@ import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,11 @@ fun DiffScreen(
     viewModel: DiffViewModel = composeViewModel()
 ) {
     val uiState by viewModel.uiStateFlow.collectAsStateWithLifecycle()
+
+    // Refresh screenshot directories when screen is displayed
+    LaunchedEffect(Unit) {
+        viewModel.refreshScreenshotDirs()
+    }
 
     DiffContent(
         uiState = uiState,

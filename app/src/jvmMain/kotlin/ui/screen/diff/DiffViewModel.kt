@@ -107,9 +107,8 @@ class DiffViewModel : ViewModel() {
             selectFileProgressFlow.value = false
         }.launchIn(viewModelScope + Dispatchers.IO)
 
-        // フォルダを取得する（１回のみ）
+        // フォルダを取得する
         GetScreenshotDirsUseCase()
-            .take(1)
             .onEach { dirs ->
                 if (dirs.isEmpty()) {
                     _uiStateFlow.value = DiffUiState.Empty
@@ -163,6 +162,12 @@ class DiffViewModel : ViewModel() {
         viewModelScope.launch {
             if (progressFlow.firstOrNull() == true) return@launch
             block()
+        }
+    }
+
+    fun refreshScreenshotDirs() = runIfNotInProgress {
+        viewModelScope.launch(Dispatchers.IO) {
+            RefreshScreenshotDirsUseCase()
         }
     }
 }

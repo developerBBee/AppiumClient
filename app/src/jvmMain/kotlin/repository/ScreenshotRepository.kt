@@ -13,10 +13,17 @@ import kotlin.io.path.name
 
 object ScreenshotRepository {
 
+    private var currentTarget: Target? = null
     private val _screenshotDirsFlow = MutableStateFlow<List<Path>>(emptyList())
     val screenshotDirsFlow: StateFlow<List<Path>> = _screenshotDirsFlow.asStateFlow()
 
     fun changeTarget(target: Target) {
+        currentTarget = target
+        refreshCurrentTarget()
+    }
+
+    fun refreshCurrentTarget() {
+        val target = currentTarget ?: return
 
         val targetDir = SCREENSHOT_DIR_PATH / target.name
 
