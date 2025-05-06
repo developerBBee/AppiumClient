@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import usecase.CompareFilesUseCase
 import usecase.GetImagePathUseCase
 import usecase.GetScreenshotDirsUseCase
+import usecase.RefreshScreenshotDirsUseCase
 import java.nio.file.Path
 import kotlin.io.path.div
 
@@ -158,16 +159,16 @@ class DiffViewModel : ViewModel() {
         _selectedFileFlow.value = SelectedFileInfo(selectedFile = file)
     }
 
+    fun refreshScreenshotDirs() = runIfNotInProgress {
+        viewModelScope.launch {
+            RefreshScreenshotDirsUseCase()
+        }
+    }
+
     private fun runIfNotInProgress(block: suspend () -> Unit) {
         viewModelScope.launch {
             if (progressFlow.firstOrNull() == true) return@launch
             block()
-        }
-    }
-
-    fun refreshScreenshotDirs() = runIfNotInProgress {
-        viewModelScope.launch {
-            RefreshScreenshotDirsUseCase()
         }
     }
 }

@@ -5,7 +5,7 @@ import repository.ScreenshotRepository
 
 object SetScreenshotTargetUseCase {
 
-    operator fun invoke(target: Target) {
+    suspend operator fun invoke(target: Target) {
         ScreenshotRepository.changeTarget(target = target)
     }
 }

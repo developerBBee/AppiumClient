@@ -186,7 +186,9 @@ class MainViewModel : ViewModel() {
     fun changeCurrentTarget(targetId: TargetId) {
         val target = targetsFlow.value.first { it.id == targetId }
 
-        SetScreenshotTargetUseCase(target = target)
+        viewModelScope.launch {
+            SetScreenshotTargetUseCase(target = target)
+        }
     }
 
     override fun onCleared() {

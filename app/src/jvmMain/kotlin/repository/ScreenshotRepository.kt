@@ -19,7 +19,7 @@ object ScreenshotRepository {
     private val _screenshotDirsFlow = MutableStateFlow<List<Path>>(emptyList())
     val screenshotDirsFlow: StateFlow<List<Path>> = _screenshotDirsFlow.asStateFlow()
 
-    fun changeTarget(target: Target) {
+    suspend fun changeTarget(target: Target) {
         currentTarget = target
         refreshCurrentTarget()
     }
