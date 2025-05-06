@@ -166,7 +166,7 @@ class DiffViewModel : ViewModel() {
     }
 
     fun refreshScreenshotDirs() = runIfNotInProgress {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             RefreshScreenshotDirsUseCase()
         }
     }

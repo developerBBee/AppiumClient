@@ -1,10 +1,12 @@
 package usecase
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import repository.ScreenshotRepository
 
 object RefreshScreenshotDirsUseCase {
 
-    operator fun invoke() {
+    suspend operator fun invoke() {
         ScreenshotRepository.refreshCurrentTarget()
     }
 }

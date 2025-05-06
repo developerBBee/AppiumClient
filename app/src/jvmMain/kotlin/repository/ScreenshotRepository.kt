@@ -1,9 +1,11 @@
 package repository
 
 import data.Target
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import util.SCREENSHOT_DIR_PATH
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -22,17 +24,19 @@ object ScreenshotRepository {
         refreshCurrentTarget()
     }
 
-    fun refreshCurrentTarget() {
+    suspend fun refreshCurrentTarget() {
         val target = currentTarget ?: return
 
-        val targetDir = SCREENSHOT_DIR_PATH / target.name
+        val screenshotDirs = withContext(Dispatchers.IO) {
+            val targetDir = SCREENSHOT_DIR_PATH / target.name
 
-        val screenshotDirs = if (targetDir.isDirectory()) {
-            targetDir.listDirectoryEntries()
-                .filter { it.isDirectory() }
-                .sortedByDescending { it.name }
-        } else {
-            emptyList()
+            if (targetDir.isDirectory()) {
+                targetDir.listDirectoryEntries()
+                    .filter { it.isDirectory() }
+                    .sortedByDescending { it.name }
+            } else {
+                emptyList()
+            }
         }
 
         _screenshotDirsFlow.value = screenshotDirs
