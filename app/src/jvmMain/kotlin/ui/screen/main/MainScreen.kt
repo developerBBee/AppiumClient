@@ -16,6 +16,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.CircularProgressIndicator
@@ -179,89 +180,91 @@ private fun MainPagerContent(
     Box(modifier = modifier) {
         val scrollState = rememberScrollState()
 
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row {
-                Box(
-                    modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    if (state.progress) {
-                        CircularProgressIndicator()
+        SelectionContainer(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row {
+                    Box(
+                        modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        if (state.progress) {
+                            CircularProgressIndicator()
+                        }
                     }
+
+                    OutlinedButton(
+                        modifier = Modifier
+                            .padding(vertical = 32.dp)
+                            .width(240.dp)
+                            .height(80.dp),
+                        elevation = ButtonDefaults.elevation(),
+                        onClick = { onButtonClick(state) }
+                    ) {
+                        Text(
+                            text = state.buttonText,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.h4,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
                 }
 
-                OutlinedButton(
-                    modifier = Modifier
-                        .padding(vertical = 32.dp)
-                        .width(240.dp)
-                        .height(80.dp),
-                    elevation = ButtonDefaults.elevation(),
-                    onClick = { onButtonClick(state) }
+                Box(
+                    modifier = Modifier.fillMaxWidth(0.8f),
+                    contentAlignment = Alignment.TopCenter
                 ) {
                     Text(
-                        text = state.buttonText,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.h4,
+                        text = state.message,
+                        style = MaterialTheme.typography.body1,
                     )
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-            }
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.8f),
+                ) {
+                    Divider()
 
-            Box(
-                modifier = Modifier.fillMaxWidth(0.8f),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.body1,
-                )
-            }
-
-            Column (
-                modifier = Modifier.fillMaxWidth(0.8f),
-            ) {
-                Divider()
-
-                // Header
-                ActionRow(
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                    actionIndex = "番号",
-                    actionName = "アクション名",
-                    actionTarget = "対象",
-                    style = MaterialTheme.typography.h6
-                        .copy(
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                        ),
-                )
-
-                Divider()
-
-                // Contents
-                state.actions.forEachIndexed { index, action ->
+                    // Header
                     ActionRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
-                            .background(
-                                color = if (index == state.currentIndex) {
-                                    MaterialTheme.colors.secondary.copy(alpha = 0.3f)
-                                } else {
-                                    MaterialTheme.colors.background
-                                }
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        actionIndex = "番号",
+                        actionName = "アクション名",
+                        actionTarget = "対象",
+                        style = MaterialTheme.typography.h6
+                            .copy(
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
                             ),
-                        actionIndex = index.toString(),
-                        actionName = action.getActionName(),
-                        actionTarget = action.getActionTarget(),
-                        style = MaterialTheme.typography.body1
-                            .copy(textAlign = TextAlign.Center),
                     )
 
                     Divider()
+
+                    // Contents
+                    state.actions.forEachIndexed { index, action ->
+                        ActionRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(32.dp)
+                                .background(
+                                    color = if (index == state.currentIndex) {
+                                        MaterialTheme.colors.secondary.copy(alpha = 0.3f)
+                                    } else {
+                                        MaterialTheme.colors.background
+                                    }
+                                ),
+                            actionIndex = index.toString(),
+                            actionName = action.getActionName(),
+                            actionTarget = action.getActionTarget(),
+                            style = MaterialTheme.typography.body1
+                                .copy(textAlign = TextAlign.Center),
+                        )
+
+                        Divider()
+                    }
                 }
             }
         }
